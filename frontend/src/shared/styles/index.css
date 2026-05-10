@@ -1,0 +1,56 @@
+/* Google Fonts - Must be first */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* Core CSS imports */
+@import './tailwind.css';
+@import './theme.css';
+@import './fonts.css';
+@import './gradients.css';
+
+/* TalentAI Custom Styles */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  /* Shimmer animation for skeleton loading */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Pulse animation for notification dots */
+  @keyframes pulse-soft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Backdrop blur utility */
+  .backdrop-blur-glass {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}

@@ -1,0 +1,32 @@
+import { LucideIcon } from 'lucide-react';
+
+export interface Job {
+  id: string;
+  title: string;
+  company: string;
+  icon: LucideIcon;
+  location: string;
+  type: 'Full-Time' | 'Part-Time' | 'Contract' | 'Internship';
+  experience: 'Entry' | 'Mid' | 'Senior' | 'Lead';
+  salary: string;
+  skills: string[];
+  description: string;
+  requirements: string[];
+  responsibilities: string[];
+  benefits: string[];
+  postedDate: Date;
+  recruiterId: string;
+  isActive: boolean;
+  matchScore?: number;
+}
+
+export interface JobApplication {
+  id: string;
+  jobId: string;
+  candidateId: string;
+  status: 'applied' | 'screening' | 'interviewing' | 'offered' | 'rejected';
+  appliedDate: Date;
+  updatedDate: Date;
+  coverLetter?: string;
+  notes?: string;
+}
