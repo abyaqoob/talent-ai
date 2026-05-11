@@ -1,11 +1,12 @@
 export type WorkMode = 'remote' | 'onsite' | 'hybrid';
-export type JobType = 'full-time' | 'part-time' | 'contract';
-export type ExperienceLevel = 'junior' | 'mid' | 'senior';
+// ✅ FIXED: added 'internship' and 'lead' variants that frontend sends
+export type JobType = 'full-time' | 'part-time' | 'contract' | 'internship';
+export type ExperienceLevel = 'junior' | 'mid' | 'senior' | 'lead';
 
 export interface ISalaryRange {
     min: number;
     max: number;
-    currency: string; 
+    currency: string;
 }
 
 export interface IJob {
@@ -19,6 +20,7 @@ export interface IJob {
     salaryRange: ISalaryRange;
     description: string;
     requirements: string[];
+    skills?: string[];      // ✅ Added: AI-extracted skills field
     status: 'active' | 'closed';
     views: number;
     createdAt: Date;

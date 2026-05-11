@@ -1,14 +1,25 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Eye, EyeOff, Briefcase, Building2, CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { ThemeToggle } from '@/adapters/primary/ui/components/ThemeToggle';
+import { useAuth } from '@/presentation/hooks/useAuth';
 
 export default function Register() {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'recruiter' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  // Recruiter company fields
+  const [companyName, setCompanyName] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [companySize, setCompanySize] = useState('1-10');
+  const [website, setWebsite] = useState('');
 
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--bg-primary)' }}>
@@ -184,6 +195,8 @@ export default function Register() {
               <input
                 type="text"
                 placeholder="John Doe"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setError(null); }}
                 className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none"
                 style={{
                   background: 'var(--bg-tertiary)',
@@ -208,6 +221,8 @@ export default function Register() {
               <input
                 type="email"
                 placeholder="you@example.com"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(null); }}
                 className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none"
                 style={{
                   background: 'var(--bg-tertiary)',
@@ -233,6 +248,8 @@ export default function Register() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(null); }}
                   className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none pr-12"
                   style={{
                     background: 'var(--bg-tertiary)',
@@ -261,23 +278,119 @@ export default function Register() {
               </div>
             </div>
 
+            {/* Company Fields — show only for recruiter */}
+            <AnimatePresence>
+              {selectedRole === 'recruiter' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-6 overflow-hidden"
+                >
+                  <div>
+                    <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Company Name *</label>
+                    <input
+                      type="text"
+                      placeholder="Acme Corp"
+                      value={companyName}
+                      onChange={(e) => { setCompanyName(e.target.value); setError(null); }}
+                      className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none"
+                      style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                      onFocus={(e) => { e.target.style.borderColor = 'var(--accent-primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(5,150,105,0.15)'; }}
+                      onBlur={(e) => { e.target.style.borderColor = 'var(--border-subtle)'; e.target.style.boxShadow = 'none'; }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Industry *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Software"
+                        value={industry}
+                        onChange={(e) => { setIndustry(e.target.value); setError(null); }}
+                        className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none"
+                        style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                        onFocus={(e) => { e.target.style.borderColor = 'var(--accent-primary)'; }}
+                        onBlur={(e) => { e.target.style.borderColor = 'var(--border-subtle)'; }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Company Size</label>
+                      <select
+                        value={companySize}
+                        onChange={(e) => setCompanySize(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none"
+                        style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                      >
+                        {['1-10','11-50','51-200','201-500','501-1000','1000+'].map(s => (
+                          <option key={s} value={s}>{s} employees</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Company Website</label>
+                    <input
+                      type="url"
+                      placeholder="https://yourcompany.com"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none"
+                      style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                      onFocus={(e) => { e.target.style.borderColor = 'var(--accent-primary)'; }}
+                      onBlur={(e) => { e.target.style.borderColor = 'var(--border-subtle)'; }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {error && (
+              <div className="p-3 rounded-xl text-sm" style={{ background: 'rgba(220,38,38,0.1)', color: '#ef4444', border: '1px solid rgba(220,38,38,0.2)' }}>
+                {error}
+              </div>
+            )}
+
             <button
               type="submit"
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.preventDefault();
                 if (!selectedRole) {
-                  alert('Please select a role to continue');
+                  setError('Please select a role to continue');
                   return;
                 }
+                if (selectedRole === 'recruiter') {
+                  if (!companyName.trim()) {
+                    setError('Company Name is required');
+                    return;
+                  }
+                  if (!industry.trim()) {
+                    setError('Industry is required');
+                    return;
+                  }
+                }
+                setError(null);
                 setIsLoading(true);
-                // Simulate account creation delay
-                setTimeout(() => {
+                try {
+                  // Pass company details for recruiter registration
+                  await register({
+                    name,
+                    email,
+                    password,
+                    role: selectedRole,
+                    ...(selectedRole === 'recruiter' ? { companyName, industry, companySize, website } : {}),
+                  } as any);
                   if (selectedRole === 'recruiter') {
                     navigate('/recruiter/dashboard');
                   } else {
                     navigate('/dashboard');
                   }
-                }, 2000);
+                } catch (err: any) {
+                  setError(err.message || 'Registration failed. Please try again.');
+                } finally {
+                  setIsLoading(false);
+                }
               }}
               disabled={isLoading}
               className="w-full py-3.5 rounded-xl transition-all duration-150 active:scale-[0.97] flex items-center justify-center gap-2"

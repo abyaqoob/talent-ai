@@ -58,11 +58,12 @@ export class JobRepository implements IJobRepository {
             experienceLevel: doc.experienceLevel,
             salaryRange: doc.salaryRange,
             description: doc.description,
-            requirements: doc.requirements,
+            requirements: doc.requirements || [],
+            skills: doc.skills || [],   // ✅ Include skills
             status: doc.status,
             views: doc.views || 0,
             createdAt: doc.createdAt,
-            updatedAt: doc.updatedAt
+            updatedAt: doc.updatedAt,
         };
     }
 }

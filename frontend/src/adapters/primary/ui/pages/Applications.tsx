@@ -1,85 +1,212 @@
 import { motion } from 'motion/react';
-import { useState } from 'react';
-import { Briefcase, Calendar, MapPin, Eye, LayoutGrid, List, Code, Palette, Rocket, FlaskConical, Zap, LucideIcon } from 'lucide-react';
-// Drag and drop removed to avoid conflicts
+import { useState, useEffect } from 'react';
+import { Briefcase, Calendar, MapPin, Eye, LayoutGrid, List } from 'lucide-react';
 import { AppLayout } from '@/adapters/primary/ui/components/layout/AppLayout';
+import { useApplications } from '@/presentation/hooks/useApplications';
+import { useAuth } from '@/presentation/hooks/useAuth';
+import { useJobs } from '@/presentation/hooks/useJobs';
+import { JobApplication } from '@/domain/entities/Job';
 
-const initialApplications = {
-  applied: [
-    {
-      id: 1,
-      title: 'Senior Frontend Developer',
-      company: 'TechCorp',
-      icon: Code,
-      date: 'Mar 5, 2026',
-      location: 'Remote',
-    },
-    {
-      id: 2,
-      title: 'Product Designer',
-      company: 'Design Studio',
-      icon: Palette,
-      date: 'Mar 3, 2026',
-      location: 'New York, NY',
-    },
-  ],
-  reviewing: [
-    {
-      id: 3,
-      title: 'Full Stack Engineer',
-      company: 'StartupXYZ',
-      icon: Rocket,
-      date: 'Feb 28, 2026',
-      location: 'San Francisco, CA',
-    },
-  ],
-  shortlisted: [
-    {
-      id: 4,
-      title: 'UX Researcher',
-      company: 'Research Lab',
-      icon: FlaskConical,
-      date: 'Feb 25, 2026',
-      location: 'Remote',
-    },
-  ],
-  rejected: [
-    {
-      id: 5,
-      title: 'Backend Developer',
-      company: 'DataCore',
-      icon: Zap,
-      date: 'Feb 20, 2026',
-      location: 'Austin, TX',
-    },
-  ],
-};
-
-const columns = [
-  { id: 'applied', title: 'Applied', count: 2, color: '#059669' },
-  { id: 'reviewing', title: 'Under Review', count: 1, color: '#F59E0B' },
-  { id: 'shortlisted', title: 'Shortlisted', count: 1, color: '#059669' },
-  { id: 'rejected', title: 'Rejected', count: 1, color: '#EF4444' },
+const STATUS_COLUMNS = [
+  { id: 'applied', title: 'Applied', color: '#059669' },
+  { id: 'screening', title: 'Screening', color: '#3B82F6' },
+  { id: 'under_review', title: 'Under Review', color: '#F59E0B' },
+  { id: 'interviewing', title: 'Interviewing', color: '#8B5CF6' },
+  { id: 'shortlisted', title: 'Shortlisted', color: '#10B981' },
+  { id: 'offered', title: 'Offered', color: '#059669' },
+  { id: 'rejected', title: 'Rejected', color: '#EF4444' },
 ];
 
-interface Application {
-  id: number;
-  title: string;
-  company: string;
-  icon: LucideIcon;
-  date: string;
-  location: string;
+export default function Applications() {
+  const [view, setView] = useState<'kanban' | 'list'>('kanban');
+  const { user } = useAuth();
+  const { applications, loading, error, loadApplications } = useApplications();
+  const { getJobById } = useJobs();
+  const [jobTitles, setJobTitles] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (user?.id) loadApplications(user.id);
+  }, [user?.id]);
+
+  // Load job titles for each application
+  useEffect(() => {
+    const fetchTitles = async () => {
+      const titles: Record<string, string> = {};
+      const uniqueJobIds = [...new Set(applications.map(a => a.jobId))];
+      await Promise.all(
+        uniqueJobIds.map(async jobId => {
+          try {
+            const job = await getJobById(jobId);
+            if (job) titles[jobId] = `${job.title} @ ${job.company}`;
+          } catch { /* skip */ }
+        })
+      );
+      setJobTitles(titles);
+    };
+    if (applications.length > 0) fetchTitles();
+  }, [applications]);
+
+  const getAppsForStatus = (status: string) =>
+    applications.filter(a => a.status === status);
+
+  const activeCount = applications.filter(a => a.status !== 'rejected').length;
+
+  return (
+    <AppLayout showBackButton>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-6 md:mb-8 flex flex-col sm:flex-row items-start justify-between gap-4"
+        >
+          <div>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
+              <h1 className="text-2xl md:text-4xl" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+                My Applications
+              </h1>
+              <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm" style={{ background: 'rgba(5, 150, 105, 0.12)', color: 'var(--accent-primary)' }}>
+                {activeCount} Active
+              </span>
+            </div>
+            <p className="text-sm md:text-base" style={{ color: 'var(--text-secondary)' }}>
+              Track and manage all your job applications
+            </p>
+          </div>
+
+          {/* View Toggle */}
+          <div className="flex items-center gap-2 p-1 rounded-lg" style={{ background: 'var(--bg-tertiary)' }}>
+            <button
+              onClick={() => setView('kanban')}
+              className="px-3 py-1.5 rounded-md text-sm transition-all duration-150"
+              style={{ background: view === 'kanban' ? 'var(--accent-primary)' : 'transparent', color: view === 'kanban' ? 'white' : 'var(--text-secondary)' }}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className="px-3 py-1.5 rounded-md text-sm transition-all duration-150"
+              style={{ background: view === 'list' ? 'var(--accent-primary)' : 'transparent', color: view === 'list' ? 'white' : 'var(--text-secondary)' }}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Error */}
+        {error && (
+          <div className="mb-6 p-4 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            {error}
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: '300px' }}>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="flex-1 min-w-[260px] animate-pulse">
+                <div className="h-3 rounded mb-4" style={{ background: 'var(--bg-tertiary)', width: '60%' }} />
+                <div className="h-24 rounded-xl" style={{ background: 'var(--bg-secondary)' }} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && applications.length === 0 && (
+          <div className="text-center py-20">
+            <Briefcase className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
+            <p className="text-lg mb-2" style={{ color: 'var(--text-primary)' }}>No applications yet</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Browse jobs and start applying to see your applications here</p>
+          </div>
+        )}
+
+        {/* Kanban Board */}
+        {!loading && applications.length > 0 && view === 'kanban' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="flex gap-4 md:gap-6 overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0"
+            style={{ minHeight: '400px' }}
+          >
+            {STATUS_COLUMNS.filter(col => getAppsForStatus(col.id).length > 0 || ['applied', 'under_review', 'shortlisted'].includes(col.id)).map(column => (
+              <div key={column.id} className="flex-1 min-w-[260px] md:min-w-[280px]">
+                <div className="mb-4">
+                  <div className="h-1 rounded-full mb-3" style={{ background: column.color }} />
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm" style={{ color: 'var(--text-primary)' }}>{column.title}</h3>
+                    <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}>
+                      {getAppsForStatus(column.id).length}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {getAppsForStatus(column.id).map(app => (
+                    <AppCard key={app.id} app={app} jobTitle={jobTitles[app.jobId]} columnId={column.id} />
+                  ))}
+                  {getAppsForStatus(column.id).length === 0 && (
+                    <div className="p-8 rounded-xl text-center text-sm" style={{ border: '2px dashed var(--border-subtle)', color: 'var(--text-muted)' }}>
+                      No applications
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* List View */}
+        {!loading && applications.length > 0 && view === 'list' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="space-y-4"
+          >
+            {applications.map(app => {
+              const col = STATUS_COLUMNS.find(c => c.id === app.status);
+              return (
+                <div
+                  key={app.id}
+                  className="p-6 rounded-2xl flex items-center justify-between"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(5,150,105,0.1)', border: '1px solid rgba(5,150,105,0.2)' }}>
+                      <Briefcase className="w-6 h-6" style={{ color: '#047857' }} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg mb-0.5" style={{ color: 'var(--text-primary)' }}>
+                        {jobTitles[app.jobId] || `Job ${app.jobId.slice(0, 8)}…`}
+                      </h3>
+                      <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                        <Calendar className="w-3 h-3" />
+                        Applied {new Date(app.appliedDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="px-3 py-1.5 rounded-full text-xs capitalize"
+                      style={{ background: col ? `${col.color}20` : 'transparent', color: col?.color || 'var(--text-muted)' }}>
+                      {app.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
+      </div>
+    </AppLayout>
+  );
 }
 
-interface ApplicationCardProps {
-  application: Application;
-  columnId: string;
-}
-
-const ApplicationCard = ({ application, columnId }: ApplicationCardProps) => {
+function AppCard({ app, jobTitle, columnId }: { app: JobApplication; jobTitle?: string; columnId: string }) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       whileHover={{ scale: 1.02 }}
       className="p-4 rounded-xl group"
@@ -87,273 +214,29 @@ const ApplicationCard = ({ application, columnId }: ApplicationCardProps) => {
         background: 'var(--bg-tertiary)',
         border: '1px solid var(--border-subtle)',
         boxShadow: 'var(--shadow-card)',
-        transition: 'transform 200ms, box-shadow 200ms',
         opacity: columnId === 'rejected' ? 0.6 : 1,
       }}
     >
       <div className="flex items-start gap-3 mb-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'rgba(5, 150, 105, 0.1)', border: '1px solid rgba(5, 150, 105, 0.2)' }}
-        >
-          <application.icon className="w-5 h-5" style={{ color: '#047857' }} />
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(5,150,105,0.1)', border: '1px solid rgba(5,150,105,0.2)' }}>
+          <Briefcase className="w-5 h-5" style={{ color: '#047857' }} />
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="text-sm mb-0.5 truncate" style={{ color: 'var(--text-primary)' }}>
-            {application.title}
+            {jobTitle || `Job ${app.jobId.slice(0, 8)}…`}
           </h4>
-          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            {application.company}
-          </p>
         </div>
       </div>
-
-      <div className="flex items-center gap-2 text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-        <span className="flex items-center gap-1">
-          <Calendar className="w-3 h-3" />
-          {application.date}
-        </span>
-      </div>
-
       <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-        <MapPin className="w-3 h-3" />
-        {application.location}
+        <Calendar className="w-3 h-3" />
+        {new Date(app.appliedDate).toLocaleDateString()}
       </div>
-
       <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <button 
-          className="text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-          style={{ color: 'var(--accent-primary)' }}
-        >
+        <button className="text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1" style={{ color: 'var(--accent-primary)' }}>
           <Eye className="w-3 h-3" />
           View Details
         </button>
       </div>
     </motion.div>
-  );
-};
-
-interface ColumnProps {
-  column: typeof columns[0];
-  applications: Application[];
-  onDrop: (item: any, columnId: string) => void;
-}
-
-const Column = ({ column, applications, onDrop }: ColumnProps) => {
-  return (
-    <div
-      className="flex-1 min-w-[260px] md:min-w-[280px]"
-      style={{
-        background: 'transparent',
-        transition: 'background 200ms',
-      }}
-    >
-      <div className="mb-4">
-        <div 
-          className="h-1 rounded-full mb-3"
-          style={{ background: column.color }}
-        />
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm" style={{ color: 'var(--text-primary)' }}>
-            {column.title}
-          </h3>
-          <span 
-            className="px-2 py-0.5 rounded-full text-xs"
-            style={{ background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)' }}
-          >
-            {applications.length}
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {applications.map((app) => (
-          <ApplicationCard key={app.id} application={app} columnId={column.id} />
-        ))}
-        {applications.length === 0 && (
-          <div 
-            className="p-8 rounded-xl text-center text-sm"
-            style={{ 
-              border: '2px dashed var(--border-subtle)',
-              color: 'var(--text-muted)',
-            }}
-          >
-            Drop applications here
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default function Applications() {
-  const [view, setView] = useState<'kanban' | 'list'>('kanban');
-  const [applications, setApplications] = useState(initialApplications);
-
-  const handleDrop = (item: any, toColumn: string) => {
-    const fromColumn = item.fromColumn;
-    if (fromColumn === toColumn) return;
-
-    setApplications((prev) => {
-      const newState = { ...prev };
-      const appIndex = newState[fromColumn as keyof typeof prev].findIndex(
-        (app: Application) => app.id === item.id
-      );
-      
-      if (appIndex !== -1) {
-        const [movedApp] = newState[fromColumn as keyof typeof prev].splice(appIndex, 1);
-        newState[toColumn as keyof typeof prev].push(movedApp as any);
-      }
-      
-      return newState;
-    });
-  };
-
-  return (
-    <AppLayout showBackButton>
-      <div className="max-w-7xl mx-auto">
-          {/* Page Title with Toggle */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mb-6 md:mb-8 flex flex-col sm:flex-row items-start sm:items-start justify-between gap-4"
-          >
-            <div>
-              <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
-                <h1
-                  className="text-2xl md:text-3xl lg:text-4xl"
-                  style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}
-                >
-                  My Applications
-                </h1>
-                <span
-                  className="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm"
-                  style={{ background: 'rgba(5, 150, 105, 0.12)', color: 'var(--accent-primary)' }}
-                >
-                  5 Active
-                </span>
-              </div>
-              <p className="text-sm md:text-base" style={{ color: 'var(--text-secondary)' }}>
-                Track and manage all your job applications
-              </p>
-            </div>
-
-            {/* View Toggle */}
-            <div className="flex items-center gap-2 p-1 rounded-lg" style={{ background: 'var(--bg-tertiary)' }}>
-              <button
-                onClick={() => setView('kanban')}
-                className="px-3 py-1.5 rounded-md text-sm transition-all duration-150"
-                style={{
-                  background: view === 'kanban' ? 'var(--accent-primary)' : 'transparent',
-                  color: view === 'kanban' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setView('list')}
-                className="px-3 py-1.5 rounded-md text-sm transition-all duration-150"
-                style={{
-                  background: view === 'list' ? 'var(--accent-primary)' : 'transparent',
-                  color: view === 'list' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-          </motion.div>
-
-          {/* Kanban Board */}
-          {view === 'kanban' && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="flex gap-4 md:gap-6 overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0"
-              style={{ minHeight: '400px' }}
-            >
-              {columns.map((column) => (
-                <Column
-                  key={column.id}
-                  column={column}
-                  applications={applications[column.id as keyof typeof applications]}
-                  onDrop={handleDrop}
-                />
-              ))}
-            </motion.div>
-          )}
-
-          {/* List View */}
-          {view === 'list' && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="space-y-4"
-            >
-              {Object.entries(applications).flatMap(([status, apps]) =>
-                apps.map((app) => (
-                  <div
-                    key={app.id}
-                    className="p-6 rounded-2xl flex items-center justify-between"
-                    style={{
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-subtle)',
-                    }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center"
-                        style={{ background: 'rgba(5, 150, 105, 0.1)', border: '1px solid rgba(5, 150, 105, 0.2)' }}
-                      >
-                        <app.icon className="w-6 h-6" style={{ color: '#047857' }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg mb-0.5 truncate" title={app.title} style={{ color: 'var(--text-primary)' }}>
-                          {app.title}
-                        </h3>
-                        <p className="text-sm truncate" title={`${app.company} • ${app.location}`} style={{ color: 'var(--text-secondary)' }}>
-                          {app.company} • {app.location}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-                          Applied on
-                        </div>
-                        <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                          {app.date}
-                        </div>
-                      </div>
-                      <div 
-                        className="px-3 py-1.5 rounded-full text-xs"
-                        style={{
-                          background: columns.find(c => c.id === status)?.color 
-                            ? `${columns.find(c => c.id === status)?.color}20`
-                            : 'transparent',
-                          color: columns.find(c => c.id === status)?.color,
-                        }}
-                      >
-                        {columns.find(c => c.id === status)?.title}
-                      </div>
-                      <button 
-                        className="px-4 py-2 rounded-lg text-sm transition-all duration-150 active:scale-[0.97]"
-                        style={{
-                          background: 'var(--accent-primary)',
-                          color: 'var(--text-primary)',
-                        }}
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </motion.div>
-          )}
-      </div>
-    </AppLayout>
   );
 }

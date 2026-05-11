@@ -24,39 +24,37 @@ const JobSchema = new Schema<IJobDocument>(
         },
         workMode: {
             type: String,
-            enum: ['remote', 'onsite', 'hybrid'],
-            required: true
+            // ✅ Fixed: accept both formats
+            enum: ['remote', 'onsite', 'hybrid', 'Remote', 'Onsite', 'Hybrid'],
+            required: true,
+            lowercase: true,
         },
         jobType: {
             type: String,
-            enum: ['full-time', 'part-time', 'contract'],
-            required: true
+            // ✅ Fixed: accept all variants frontend sends
+            enum: ['full-time', 'part-time', 'contract', 'internship', 'fulltime', 'parttime'],
+            required: true,
         },
         experienceLevel: {
             type: String,
-            enum: ['junior', 'mid', 'senior'],
-            required: true
+            // ✅ Fixed: accept all variants frontend sends
+            enum: ['junior', 'mid', 'senior', 'lead', 'entry', 'Entry', 'Mid', 'Senior', 'Lead'],
+            required: true,
         },
         salaryRange: {
-            min: {
-                type: Number,
-                required: true
-            },
-            max: {
-                type: Number,
-                required: true
-            },
-            currency: {
-                type: String,
-                required: true,
-                default: 'USD'
-            }
+            min: { type: Number, required: true, default: 0 },
+            max: { type: Number, required: true, default: 0 },
+            currency: { type: String, required: true, default: 'USD' }
         },
         description: {
             type: String,
             required: true
         },
         requirements: {
+            type: [String],
+            default: []
+        },
+        skills: {
             type: [String],
             default: []
         },
@@ -71,12 +69,11 @@ const JobSchema = new Schema<IJobDocument>(
         }
     },
     {
-        timestamps: true, // Automatically adds createdAt and updatedAt
+        timestamps: true,
         collection: 'jobs'
     }
 );
 
-// Indexes for better query performance
 JobSchema.index({ recruiterId: 1, createdAt: -1 });
 JobSchema.index({ workMode: 1, jobType: 1 });
 JobSchema.index({ experienceLevel: 1 });

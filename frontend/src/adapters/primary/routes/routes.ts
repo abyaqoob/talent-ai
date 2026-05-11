@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router";
+import { createElement } from "react";
 import Landing from "../ui/pages/Landing";
 import Login from "../ui/pages/Login";
 import Register from "../ui/pages/Register";
@@ -20,93 +21,34 @@ import Candidates from "../ui/pages/recruiter/Candidates";
 import Analytics from "../ui/pages/recruiter/Analytics";
 import RecruiterSettings from "../ui/pages/recruiter/RecruiterSettings";
 import NotFound from "../ui/pages/NotFound";
+import { ProtectedRoute } from "../ui/components/ProtectedRoute";
+
+const protect = (component: JSX.Element, role?: 'candidate' | 'recruiter') =>
+  createElement(ProtectedRoute, { requiredRole: role }, component);
 
 export const router = createBrowserRouter([
-  {
-    path: "/",
-    Component: Landing,
-  },
-  {
-    path: "/login",
-    Component: Login,
-  },
-  {
-    path: "/register",
-    Component: Register,
-  },
-  // Candidate Routes
-  {
-    path: "/dashboard",
-    Component: Dashboard,
-  },
-  {
-    path: "/profile",
-    Component: Profile,
-  },
-  {
-    path: "/cv-upload",
-    Component: CVUpload,
-  },
-  {
-    path: "/jobs",
-    Component: JobDiscovery,
-  },
-  {
-    path: "/jobs/:id",
-    Component: JobDetail,
-  },
-  {
-    path: "/applications",
-    Component: Applications,
-  },
-  {
-    path: "/messages",
-    Component: Messages,
-  },
-  {
-    path: "/notifications",
-    Component: Notifications,
-  },
-  {
-    path: "/settings",
-    Component: Settings,
-  },
-  // Recruiter Routes
-  {
-    path: "/recruiter/dashboard",
-    Component: RecruiterDashboard,
-  },
-  {
-    path: "/recruiter/post-job",
-    Component: PostJob,
-  },
-  {
-    path: "/recruiter/jobs",
-    Component: ManageJobs,
-  },
-  {
-    path: "/recruiter/jobs/:jobId/pipeline",
-    Component: CandidatePipeline,
-  },
-  {
-    path: "/recruiter/candidates/:candidateId",
-    Component: CandidateDetail,
-  },
-  {
-    path: "/recruiter/candidates",
-    Component: Candidates,
-  },
-  {
-    path: "/recruiter/analytics",
-    Component: Analytics,
-  },
-  {
-    path: "/recruiter/settings",
-    Component: RecruiterSettings,
-  },
+  { path: "/", Component: Landing },
+  { path: "/login", Component: Login },
+  { path: "/register", Component: Register },
+  // Candidate Routes (protected)
+  { path: "/dashboard", element: protect(createElement(Dashboard), 'candidate') },
+  { path: "/profile", element: protect(createElement(Profile), 'candidate') },
+  { path: "/cv-upload", element: protect(createElement(CVUpload), 'candidate') },
+  { path: "/jobs", element: protect(createElement(JobDiscovery)) },
+  { path: "/jobs/:id", element: protect(createElement(JobDetail)) },
+  { path: "/applications", element: protect(createElement(Applications), 'candidate') },
+  { path: "/messages", element: protect(createElement(Messages)) },
+  { path: "/notifications", element: protect(createElement(Notifications)) },
+  { path: "/settings", element: protect(createElement(Settings)) },
+  // Recruiter Routes (protected)
+  { path: "/recruiter/dashboard", element: protect(createElement(RecruiterDashboard), 'recruiter') },
+  { path: "/recruiter/post-job", element: protect(createElement(PostJob), 'recruiter') },
+  { path: "/recruiter/jobs", element: protect(createElement(ManageJobs), 'recruiter') },
+  { path: "/recruiter/jobs/:jobId/pipeline", element: protect(createElement(CandidatePipeline), 'recruiter') },
+  { path: "/recruiter/candidates/:candidateId", element: protect(createElement(CandidateDetail), 'recruiter') },
+  { path: "/recruiter/candidates", element: protect(createElement(Candidates), 'recruiter') },
+  { path: "/recruiter/analytics", element: protect(createElement(Analytics), 'recruiter') },
+  { path: "/recruiter/settings", element: protect(createElement(RecruiterSettings), 'recruiter') },
   // 404
-  {
-    path: "*",
-    Component: NotFound,
-  },
+  { path: "*", Component: NotFound },
 ]);

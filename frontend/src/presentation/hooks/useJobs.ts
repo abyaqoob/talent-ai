@@ -4,7 +4,7 @@ import { Job } from '../../domain/entities/Job';
 
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -15,8 +15,7 @@ export function useJobs() {
     try {
       setLoading(true);
       setError(null);
-      const getAllJobsUseCase = Container.getGetAllJobsUseCase();
-      const allJobs = await getAllJobsUseCase.execute();
+      const allJobs = await Container.getGetAllJobsUseCase().execute();
       setJobs(allJobs);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
@@ -27,8 +26,7 @@ export function useJobs() {
 
   const getJobById = async (jobId: string): Promise<Job | null> => {
     try {
-      const getJobByIdUseCase = Container.getGetJobByIdUseCase();
-      return await getJobByIdUseCase.execute(jobId);
+      return await Container.getGetJobByIdUseCase().execute(jobId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load job');
       return null;
@@ -39,10 +37,9 @@ export function useJobs() {
     try {
       setLoading(true);
       setError(null);
-      const getMatchingJobsUseCase = Container.getGetMatchingJobsUseCase();
-      const matchedJobs = await getMatchingJobsUseCase.execute(candidateId);
-      setJobs(matchedJobs);
-      return matchedJobs;
+      const matched = await Container.getGetMatchingJobsUseCase().execute(candidateId);
+      setJobs(matched);
+      return matched;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load matching jobs');
       return [];
@@ -51,11 +48,26 @@ export function useJobs() {
     }
   };
 
+  const getRecruiterJobs = async (): Promise<Job[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+      const recruiterJobs = await Container.getJobRepository().findByRecruiterId('me');
+      setJobs(recruiterJobs);
+      return recruiterJobs;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load your jobs');
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const createJob = async (jobData: Omit<Job, 'id' | 'postedDate'>): Promise<Job | null> => {
     try {
-      const createJobUseCase = Container.getCreateJobUseCase();
-      const newJob = await createJobUseCase.execute(jobData);
-      setJobs(prevJobs => [newJob, ...prevJobs]);
+      setError(null);
+      const newJob = await Container.getCreateJobUseCase().execute(jobData);
+      setJobs(prev => [newJob, ...prev]);
       return newJob;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create job');
@@ -63,13 +75,28 @@ export function useJobs() {
     }
   };
 
+  const deleteJob = async (jobId: string): Promise<boolean> => {
+    try {
+      setError(null);
+      await Container.getJobRepository().delete(jobId);
+      setJobs(prev => prev.filter(j => j.id !== jobId));
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete job');
+      return false;
+    }
+  };
+
   return {
     jobs,
     loading,
     error,
+    setError,
     loadJobs,
     getJobById,
     getMatchingJobs,
+    getRecruiterJobs,
     createJob,
+    deleteJob,
   };
 }

@@ -1,5 +1,6 @@
 import { IJobRepository } from '../ports/secondary/IJobRepository';
 import { IUserRepository } from '../ports/secondary/IUserRepository';
+import { IAIService } from '../ports/secondary/IAIService';
 import { IJob, WorkMode, JobType, ExperienceLevel, ISalaryRange } from '../models/job';
 import { v4 as uuidv4 } from 'uuid';
 import { AppError } from '../../shared/errors/AppError';
@@ -19,20 +20,44 @@ interface PostJobInput {
 export class PostJob {
     constructor(
         private jobRepo: IJobRepository,
-        private userRepo: IUserRepository // Needed to check roles
+        private userRepo: IUserRepository, // Needed to check roles
+        private aiService: IAIService // Needed for JD parsing
     ) {}
 
     async execute(input: PostJobInput): Promise<IJob> {
-        // 1. Verify User exists and is a Recruiter[cite: 1]
+        // 1. Verify User exists and is a Recruiter
         const user = await this.userRepo.findById(input.recruiterId);
         if (!user || user.role !== 'recruiter') {
             throw new AppError('Only recruiters can post jobs', 'FORBIDDEN', 403);
         }
 
-        // 2. Create the Job entity
+        // 2. AI Skill Extraction
+        let extractedSkills: string[] = [];
+        let finalRequirements = input.requirements || [];
+        let finalExperienceLevel = input.experienceLevel;
+
+        try {
+            const aiData = await this.aiService.extractSkillsFromJD(input.description);
+            if (aiData.skills && aiData.skills.length > 0) {
+                extractedSkills = aiData.skills;
+            }
+            if (aiData.requirements && aiData.requirements.length > 0 && finalRequirements.length === 0) {
+                finalRequirements = aiData.requirements;
+            }
+            if (aiData.experienceLevel && !input.experienceLevel) {
+                finalExperienceLevel = aiData.experienceLevel as ExperienceLevel;
+            }
+        } catch (err) {
+            console.error('AI Extraction failed during job post:', err);
+        }
+
+        // 3. Create the Job entity
         const newJob: IJob = {
-            id: uuidv4(), // Generate UUID consistent with User setup[cite: 1]
+            id: uuidv4(),
             ...input,
+            experienceLevel: finalExperienceLevel,
+            requirements: finalRequirements,
+            skills: extractedSkills,
             status: 'active',
             views: 0,
             createdAt: new Date(),

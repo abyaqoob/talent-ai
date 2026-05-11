@@ -6,16 +6,17 @@ import jwt from 'jsonwebtoken';
 interface LoginInput {
   email: string;
   password: string;
+  role?: string; // optional — if provided, must match stored role
 }
 
-interface LoginOutput{
-    token:string,
-    user:{
-        id:string,
-        name:string,
-        email:string,
-        role:string
-    };
+interface LoginOutput {
+  token: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
 }
 
 export class LoginUser {
@@ -23,13 +24,24 @@ export class LoginUser {
 
   async execute(input: LoginInput): Promise<LoginOutput> {
     const user = await this.userRepo.findByEmail(input.email);
-    if (!user){
-        throw new AppError('Incorrect email or password', 'AuthFailed', 401);
+    if (!user) {
+      throw new AppError('Incorrect email or password', 'AUTH_FAILED', 401);
     }
+
+    // ✅ BUG FIX: Role separation — if role provided, it must match
+    if (input.role && user.role !== input.role) {
+      throw new AppError(
+        'Access denied. Invalid role for this account.',
+        'ROLE_MISMATCH',
+        403
+      );
+    }
+
     const isMatch = await bcrypt.compare(input.password, user.passwordHash!);
     if (!isMatch) {
-        throw new AppError('Invalid email or password', 'AUTH_FAILED', 401);
+      throw new AppError('Incorrect email or password', 'AUTH_FAILED', 401);
     }
+
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET as string,

@@ -28,7 +28,12 @@ const mongoUri = process.env.MONGO_URI;
 const port = process.env.PORT;
 
 const app = express();
+
+import cors from 'cors';
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+
 app.use(express.json());
+
 
 // ============ USER SETUP ============
 const userRepository = new MongooseUserRepository();

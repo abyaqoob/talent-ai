@@ -1,17 +1,22 @@
-import { Home, User, FileText, Search, ClipboardList, MessageSquare, Bell, Settings, Upload, LogOut, Briefcase, Users, TrendingUp, PlusCircle } from 'lucide-react';
+import { Home, User, FileText, Search, ClipboardList, MessageSquare, Bell, Settings, LogOut, Briefcase, Users, TrendingUp, PlusCircle } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
+import { useAuth } from '@/presentation/hooks/useAuth';
 
 interface SidebarProps {
   type?: 'candidate' | 'recruiter';
-  userName?: string;
-  userType?: string;
-  isOpen?: boolean;  // add this
+  isOpen?: boolean;
 }
 
-export function Sidebar({ type = 'candidate', userName = 'Ali Johnson', userType = 'Candidate', isOpen = true }: SidebarProps) {
+export function Sidebar({ type = 'candidate', isOpen = true }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  // Compute display name and role from real auth state
+  const displayName = user?.name || (type === 'recruiter' ? 'Recruiter' : 'Candidate');
+  const displayRole = user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : (type === 'recruiter' ? 'Recruiter' : 'Candidate');
+  const initials = displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
 
   const candidateNav = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', to: '/dashboard' },
@@ -35,6 +40,11 @@ export function Sidebar({ type = 'candidate', userName = 'Ali Johnson', userType
 
   const navItems = type === 'recruiter' ? recruiterNav : candidateNav;
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   return (
     <aside
       className="flex flex-col flex-shrink-0 hidden md:flex overflow-hidden transition-all duration-300 ease-in-out"
@@ -43,14 +53,10 @@ export function Sidebar({ type = 'candidate', userName = 'Ali Johnson', userType
         background: 'var(--bg-secondary)',
         borderRight: isOpen ? '1px solid var(--border-subtle)' : 'none',
       }}
-      >
+    >
       {/* Logo */}
       <div className="p-6">
-        <motion.div
-          className="flex items-center gap-2 cursor-pointer"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.98 }}
-        >
+        <motion.div className="flex items-center gap-2 cursor-pointer" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
           <motion.span
             className="font-bold text-xl bg-clip-text"
             style={{
@@ -60,9 +66,7 @@ export function Sidebar({ type = 'candidate', userName = 'Ali Johnson', userType
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}
-            whileHover={{
-              filter: 'brightness(1.2)',
-            }}
+            whileHover={{ filter: 'brightness(1.2)' }}
             transition={{ duration: 0.3 }}
           >
             TalentAI
@@ -70,22 +74,20 @@ export function Sidebar({ type = 'candidate', userName = 'Ali Johnson', userType
         </motion.div>
       </div>
 
-      {/* User Info */}
+      {/* User Info — Real data from useAuth */}
       <div className="px-6 pb-6 mb-2">
         <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ background: '#047857' }}
-          >
-            <User className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold"
+            style={{ background: 'linear-gradient(135deg, #047857, #059669)' }}>
+            {initials || <User className="w-5 h-5" />}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{userName}</div>
-            <div
-              className="text-xs px-2 py-0.5 rounded-full inline-block"
-              style={{ background: 'var(--gradient-radial-subtle)', color: 'var(--accent-primary)', border: '1px solid var(--border-accent)' }}
-            >
-              {userType}
+            <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+              {displayName}
+            </div>
+            <div className="text-xs px-2 py-0.5 rounded-full inline-block mt-0.5"
+              style={{ background: 'var(--gradient-radial-subtle)', color: 'var(--accent-primary)', border: '1px solid var(--border-accent)' }}>
+              {displayRole}
             </div>
           </div>
         </div>
@@ -94,9 +96,10 @@ export function Sidebar({ type = 'candidate', userName = 'Ali Johnson', userType
       {/* Navigation */}
       <nav className="flex-1 px-3">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.to ||
-                          (item.id === 'jobs' && location.pathname.startsWith('/jobs')) ||
-                          (item.id === 'manage-jobs' && location.pathname.startsWith('/recruiter/jobs'));
+          const isActive =
+            location.pathname === item.to ||
+            (item.id === 'jobs' && location.pathname.startsWith('/jobs')) ||
+            (item.id === 'manage-jobs' && location.pathname.startsWith('/recruiter/jobs'));
 
           return (
             <Link key={item.id} to={item.to}>
@@ -122,7 +125,7 @@ export function Sidebar({ type = 'candidate', userName = 'Ali Johnson', userType
       {/* Logout */}
       <div className="p-3">
         <motion.button
-          onClick={() => navigate('/login')}
+          onClick={handleLogout}
           whileHover={{ scale: 1.03, y: -2 }}
           whileTap={{ scale: 0.98 }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 text-left"

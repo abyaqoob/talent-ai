@@ -49,7 +49,7 @@ export class JobController {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
-            const useCase = new PostJob(this.jobRepo, this.userRepo);
+            const useCase = new PostJob(this.jobRepo, this.userRepo, this.aiService);
             const created = await useCase.execute({
                 recruiterId,
                 ...req.body
@@ -193,6 +193,26 @@ export class JobController {
             res.json(recommendations);
         } catch (error: any) {
             res.status(error.statusCode || 500).json({ error: error.message });
+        }
+    }
+
+    // POST /api/jobs/extract-skills
+    async extractSkills(req: AuthRequest, res: Response) {
+        try {
+            const recruiterId = req.user?.id;
+            if (!recruiterId) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+
+            const { description } = req.body;
+            if (!description) {
+                return res.status(400).json({ error: 'Description is required' });
+            }
+
+            const result = await this.aiService.extractSkillsFromJD(description);
+            res.json({ success: true, data: result });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
         }
     }
 }

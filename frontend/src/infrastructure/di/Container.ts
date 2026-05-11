@@ -1,9 +1,10 @@
-// Infrastructure
-import { InMemoryAuthRepository } from '../repositories/InMemoryAuthRepository';
-import { InMemoryJobRepository } from '../repositories/InMemoryJobRepository';
-import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository';
-import { InMemoryMessageRepository } from '../repositories/InMemoryMessageRepository';
-import { InMemoryNotificationRepository } from '../repositories/InMemoryNotificationRepository';
+// Infrastructure — API-backed repositories
+import { ApiAuthRepository } from '../repositories/ApiAuthRepository';
+import { ApiJobRepository } from '../repositories/ApiJobRepository';
+import { ApiJobApplicationRepository } from '../repositories/ApiJobApplicationRepository';
+import { ApiUserRepository } from '../repositories/ApiUserRepository';
+import { ApiMessageRepository } from '../repositories/ApiMessageRepository';
+import { ApiNotificationRepository } from '../repositories/ApiNotificationRepository';
 
 // Auth Use Cases
 import { LoginUseCase } from '../../application/use-cases/auth/LoginUseCase';
@@ -33,17 +34,19 @@ import { GetUserNotificationsUseCase } from '../../application/use-cases/notific
 
 /**
  * Dependency Injection Container
- * Creates and manages all use case instances with their dependencies
+ * All repositories now backed by real API calls (no more in-memory mocks).
+ * Job and JobApplication use separate repositories to avoid interface conflicts.
  */
 export class Container {
   // Repositories (singletons)
-  private static authRepository = new InMemoryAuthRepository();
-  private static jobRepository = new InMemoryJobRepository();
-  private static userRepository = new InMemoryUserRepository();
-  private static messageRepository = new InMemoryMessageRepository();
-  private static notificationRepository = new InMemoryNotificationRepository();
+  private static authRepository = new ApiAuthRepository();
+  private static jobRepository = new ApiJobRepository();
+  private static jobApplicationRepository = new ApiJobApplicationRepository();
+  private static userRepository = new ApiUserRepository();
+  private static messageRepository = new ApiMessageRepository();
+  private static notificationRepository = new ApiNotificationRepository();
 
-  // Auth Use Cases
+  // ── Auth ──────────────────────────────────────────────────────────────────
   static getLoginUseCase(): LoginUseCase {
     return new LoginUseCase(this.authRepository);
   }
@@ -60,7 +63,7 @@ export class Container {
     return new GetCurrentUserUseCase(this.authRepository);
   }
 
-  // Job Use Cases
+  // ── Jobs ──────────────────────────────────────────────────────────────────
   static getGetAllJobsUseCase(): GetAllJobsUseCase {
     return new GetAllJobsUseCase(this.jobRepository);
   }
@@ -77,31 +80,50 @@ export class Container {
     return new CreateJobUseCase(this.jobRepository);
   }
 
-  // Application Use Cases
+  // ── Applications ──────────────────────────────────────────────────────────
   static getGetCandidateApplicationsUseCase(): GetCandidateApplicationsUseCase {
-    return new GetCandidateApplicationsUseCase(this.jobRepository);
+    return new GetCandidateApplicationsUseCase(this.jobApplicationRepository);
   }
 
   static getApplyToJobUseCase(): ApplyToJobUseCase {
-    return new ApplyToJobUseCase(this.jobRepository);
+    return new ApplyToJobUseCase(this.jobApplicationRepository);
   }
 
   static getUpdateApplicationStatusUseCase(): UpdateApplicationStatusUseCase {
-    return new UpdateApplicationStatusUseCase(this.jobRepository);
+    return new UpdateApplicationStatusUseCase(this.jobApplicationRepository);
   }
 
-  // Profile Use Cases
+  // ── Profile ───────────────────────────────────────────────────────────────
   static getGetUserProfileUseCase(): GetUserProfileUseCase {
     return new GetUserProfileUseCase(this.userRepository);
   }
 
-  // Message Use Cases
+  // ── Expose userRepository for direct use in pages ─────────────────────────
+  static getUserRepository(): ApiUserRepository {
+    return this.userRepository;
+  }
+
+  // ── Expose jobApplicationRepository for recruiter pages ───────────────────
+  static getJobApplicationRepository(): ApiJobApplicationRepository {
+    return this.jobApplicationRepository;
+  }
+
+  // ── Expose jobRepository for recruiter pages ──────────────────────────────
+  static getJobRepository(): ApiJobRepository {
+    return this.jobRepository;
+  }
+
+  // ── Messages ──────────────────────────────────────────────────────────────
   static getGetUserMessagesUseCase(): GetUserMessagesUseCase {
     return new GetUserMessagesUseCase(this.messageRepository);
   }
 
-  // Notification Use Cases
+  // ── Notifications ─────────────────────────────────────────────────────────
   static getGetUserNotificationsUseCase(): GetUserNotificationsUseCase {
     return new GetUserNotificationsUseCase(this.notificationRepository);
+  }
+
+  static getNotificationRepository(): ApiNotificationRepository {
+    return this.notificationRepository;
   }
 }

@@ -4,12 +4,17 @@ import { motion } from 'motion/react';
 import { Eye, EyeOff, User, Briefcase, Loader2, ArrowLeft, Home } from 'lucide-react';
 import { ThemeToggle } from '@/adapters/primary/ui/components/ThemeToggle';
 import { Button } from '@/adapters/primary/ui/components/base/button';
+import { useAuth } from '@/presentation/hooks/useAuth';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [userRole, setUserRole] = useState<'candidate' | 'recruiter'>('candidate');
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 md:p-6" style={{ background: 'var(--bg-primary)' }}>
@@ -143,6 +148,8 @@ export default function Login() {
             <input
               type="email"
               placeholder="you@example.com"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(null); }}
               className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none"
               style={{
                 background: 'var(--bg-tertiary)',
@@ -173,6 +180,8 @@ export default function Login() {
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(null); }}
                 className="w-full px-4 py-3 rounded-xl transition-all duration-200 focus:outline-none pr-12"
                 style={{
                   background: 'var(--bg-tertiary)',
@@ -201,19 +210,34 @@ export default function Login() {
             </div>
           </div>
 
+          {error && (
+            <div className="p-3 rounded-xl text-sm" style={{ background: 'rgba(220,38,38,0.1)', color: '#ef4444', border: '1px solid rgba(220,38,38,0.2)' }}>
+              {error}
+            </div>
+          )}
+
           <Button
             type="submit"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault();
+              setError(null);
               setIsLoading(true);
-              // Simulate login delay
-              setTimeout(() => {
+              try {
+                await login({ email, password, role: userRole });
                 if (userRole === 'recruiter') {
                   navigate('/recruiter/dashboard');
                 } else {
                   navigate('/dashboard');
                 }
-              }, 1500);
+              } catch (err: any) {
+                if (err.message && (err.message.includes('Access denied') || err.message.includes('Invalid role'))) {
+                  setError('These credentials belong to a different account type');
+                } else {
+                  setError(err.message || 'Login failed. Please check your credentials.');
+                }
+              } finally {
+                setIsLoading(false);
+              }
             }}
             variant="gradient"
             size="lg"

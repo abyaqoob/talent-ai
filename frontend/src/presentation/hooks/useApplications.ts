@@ -4,7 +4,7 @@ import { JobApplication, ApplicationStatus } from '../../domain/entities/Job';
 
 export function useApplications(candidateId?: string) {
   const [applications, setApplications] = useState<JobApplication[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,8 +17,8 @@ export function useApplications(candidateId?: string) {
     try {
       setLoading(true);
       setError(null);
-      const getCandidateApplicationsUseCase = Container.getGetCandidateApplicationsUseCase();
-      const apps = await getCandidateApplicationsUseCase.execute(candId);
+      const useCase = Container.getGetCandidateApplicationsUseCase();
+      const apps = await useCase.execute(candId);
       setApplications(apps);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load applications');
@@ -27,36 +27,39 @@ export function useApplications(candidateId?: string) {
     }
   };
 
+  // Fix: ApplyToJobUseCase.execute() takes a DTO object
   const applyToJob = async (
     candidateId: string,
     jobId: string,
     coverLetter?: string
   ): Promise<JobApplication | null> => {
     try {
-      const applyToJobUseCase = Container.getApplyToJobUseCase();
-      const newApplication = await applyToJobUseCase.execute(candidateId, jobId, coverLetter);
-      setApplications(prevApps => [newApplication, ...prevApps]);
-      return newApplication;
+      setError(null);
+      const useCase = Container.getApplyToJobUseCase();
+      const newApp = await useCase.execute({ candidateId, jobId, coverLetter });
+      setApplications(prev => [newApp, ...prev]);
+      return newApp;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to apply to job');
       return null;
     }
   };
 
+  // Fix: UpdateApplicationStatusUseCase.execute() takes (id, status) — no notes param
   const updateApplicationStatus = async (
     applicationId: string,
-    status: ApplicationStatus,
-    notes?: string
+    status: ApplicationStatus
   ): Promise<JobApplication | null> => {
     try {
-      const updateApplicationStatusUseCase = Container.getUpdateApplicationStatusUseCase();
-      const updatedApp = await updateApplicationStatusUseCase.execute(applicationId, status, notes);
-      setApplications(prevApps =>
-        prevApps.map(app => (app.id === applicationId ? updatedApp : app))
+      setError(null);
+      const useCase = Container.getUpdateApplicationStatusUseCase();
+      const updated = await useCase.execute(applicationId, status);
+      setApplications(prev =>
+        prev.map(app => (app.id === applicationId ? updated : app))
       );
-      return updatedApp;
+      return updated;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update application status');
+      setError(err instanceof Error ? err.message : 'Failed to update status');
       return null;
     }
   };
@@ -65,6 +68,7 @@ export function useApplications(candidateId?: string) {
     applications,
     loading,
     error,
+    setError,
     loadApplications,
     applyToJob,
     updateApplicationStatus,

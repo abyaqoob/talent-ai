@@ -8,6 +8,9 @@ import { RegisterUser } from '../../domain/use-cases/RegisterUser';
 import { LoginUser } from '../../domain/use-cases/LoginUser';
 import { UpdateProfile } from '../../domain/use-cases/UpdateProfile';
 import { DeleteUser } from '../../domain/use-cases/DeleteUser';
+import { AnalyzeCvUseCase } from '../../domain/use-cases/AnalyzeCvUseCase';
+import { SaveCompanyProfileUseCase } from '../../domain/use-cases/SaveCompanyProfileUseCase';
+import { GetCompanyProfileUseCase } from '../../domain/use-cases/GetCompanyProfileUseCase';
 import { UserController } from '../../adapters/primary/rest/controllers/UserController';
 
 // Adapters
@@ -15,15 +18,18 @@ const aiService = new OpenRouterService();
 const userRepository = new MongooseUserRepository();
 
 // Use cases
-const registerUser = new RegisterUser(userRepository); // adjust params based on your impl
-const loginUser = new LoginUser(userRepository);       // adjust params
-const updateProfile = new UpdateProfile(userRepository); // adjust params
-const deleteUser = new DeleteUser(userRepository);     // adjust params
+const registerUser = new RegisterUser(userRepository);
+const loginUser = new LoginUser(userRepository);
+const updateProfile = new UpdateProfile(userRepository);
+const deleteUser = new DeleteUser(userRepository);
 const parseCvUseCase = new ParseCvUseCase(aiService);
 const saveProfileUseCase = new SaveProfileUseCase(userRepository);
 const getProfileUseCase = new GetProfileUseCase(userRepository);
+const analyzeCvUseCase = new AnalyzeCvUseCase(aiService);
+const saveCompanyProfileUseCase = new SaveCompanyProfileUseCase(userRepository);
+const getCompanyProfileUseCase = new GetCompanyProfileUseCase(userRepository);
 
-// Controller with all dependencies
+// Controller with all 10 dependencies
 export const userController = new UserController(
   registerUser,
   loginUser,
@@ -31,5 +37,8 @@ export const userController = new UserController(
   deleteUser,
   parseCvUseCase,
   saveProfileUseCase,
-  getProfileUseCase
+  getProfileUseCase,
+  analyzeCvUseCase,
+  saveCompanyProfileUseCase,
+  getCompanyProfileUseCase,
 );

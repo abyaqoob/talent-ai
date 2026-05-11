@@ -11,6 +11,7 @@ export const JobRoutes = (controller: JobController): Router => {
     router.get('/jobs/:id', (req, res) => controller.getJobById(req, res));
 
     // Protected routes
+    router.post('/jobs/extract-skills', authMiddleware, (req, res) => controller.extractSkills(req as any, res));
     router.get('/jobs/recruiter/me', authMiddleware, (req, res) => controller.getJobsByRecruiter(req as any, res));
     router.post('/jobs', authMiddleware, (req, res) => controller.createJob(req, res));
     router.post('/jobs/:id/apply', authMiddleware, (req, res) => controller.applyForJob(req as any, res));

@@ -37,5 +37,8 @@ export function createUserRoutes(ctrl: UserController): Router {
   router.post('/company/profile', authMiddleware, ctrl.saveCompanyProfile);
   router.get('/company/profile', authMiddleware, ctrl.getCompanyProfile);
 
+  // Saved jobs
+  router.post('/saved-jobs/:jobId', authMiddleware, ctrl.saveJob);
+
   return router;
 }

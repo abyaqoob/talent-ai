@@ -5,31 +5,31 @@ type CompanyProfileDocument = ICompanyProfile & Document;
 
 const CompanyProfileSchema = new Schema<CompanyProfileDocument>(
     {
-        userId: { 
-            type: String, 
-            required: true, 
+        userId: {
+            type: String,
+            required: true,
             unique: true,
-            index: true 
+            index: true
         },
-        companyName: { 
-            type: String, 
-            required: true 
+        companyName: {
+            type: String,
+            default: ''
         },
-        industry: { 
-            type: String, 
-            required: true 
+        industry: {
+            type: String,
+            default: ''
         },
-        companySize: { 
-            type: String, 
-            required: true 
+        companySize: {
+            type: String,
+            default: '1-10'
         },
-        website: { 
-            type: String, 
-            required: true 
+        website: {
+            type: String,
+            default: ''
         },
-        description: { 
-            type: String, 
-            required: true 
+        description: {
+            type: String,
+            default: ''
         }
     },
     {

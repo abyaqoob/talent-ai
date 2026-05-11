@@ -26,8 +26,31 @@ export class UserController {
 
   register = async (req: Request, res: Response) => {
     try {
-      const { name, email, password, role } = req.body;
+      const { name, email, password, role, companyName, companySize, industry, website } = req.body;
+
+      // Validate role
+      if (!role || !['candidate', 'recruiter'].includes(role)) {
+        return res.status(400).json({ error: 'Role must be either candidate or recruiter' });
+      }
+
       const user = await this.registerUser.execute({ name, email, password, role });
+
+      // ✅ BUG FIX: Save company profile during recruiter registration
+      if (role === 'recruiter' && companyName) {
+        try {
+          await this.saveCompanyProfileUseCase.execute(user.id!, {
+            userId: user.id!,
+            companyName: companyName || '',
+            industry: industry || 'Technology',
+            companySize: companySize || '1-10',
+            website: website || '',
+            description: '',
+          });
+        } catch (profileErr) {
+          console.warn('Company profile save failed (non-critical):', profileErr);
+        }
+      }
+
       res.status(201).json({
         message: 'Registered successfully',
         user: { id: user.id, name: user.name, email: user.email, role: user.role }
@@ -39,8 +62,9 @@ export class UserController {
   
   login = async (req: Request, res: Response) => {
     try {
-      const { email, password } = req.body;
-      const result = await this.loginUser.execute({ email, password });
+      const { email, password, role } = req.body;
+      // Pass role so LoginUser can enforce role separation
+      const result = await this.loginUser.execute({ email, password, role });
       res.status(200).json(result);
     } catch (err) {
       this.handleError(res, err);
@@ -67,12 +91,12 @@ export class UserController {
     }
   };
 
-  // ⭐ NEW CV METHODS
   parseCv = async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ 
           success: false, 
+          message: 'Upload failed',
           error: 'No file uploaded' 
         });
       }
@@ -86,8 +110,12 @@ export class UserController {
         success: true, 
         data: cvData 
       });
-    } catch (err) {
-      this.handleError(res, err);
+    } catch (err: any) {
+      console.error('CV Upload Error:', err);
+      return res.status(500).json({
+        message: 'Upload failed',
+        error: err.message || 'Internal server error'
+      });
     }
   };
 
@@ -185,6 +213,24 @@ export class UserController {
         return res.status(404).json({ success: false, error: 'Company profile not found' });
       }
       res.json({ success: true, data: profile });
+    } catch (err) {
+      this.handleError(res, err);
+    }
+  };
+
+  saveJob = async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.id;
+      const jobId = req.params.jobId;
+      if (!jobId) return res.status(400).json({ error: 'Job ID is required' });
+      
+      const { UserModel } = require('../../secondary/db/UserSchema');
+      await UserModel.findOneAndUpdate(
+        { id: userId },
+        { $addToSet: { savedJobs: jobId } }
+      );
+      
+      res.json({ success: true, message: 'Job saved successfully' });
     } catch (err) {
       this.handleError(res, err);
     }

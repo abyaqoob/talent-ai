@@ -8,6 +8,7 @@ const UserSchema = new mongoose.Schema({
   role:         { type: String,  enum: ['candidate', 'recruiter'] },
   phone:        { type: String }, 
   location:     { type: String }, 
+  savedJobs:    { type: [String], default: [] }, // ✅ Added for Bug 3
   createdAt:    { type: Date,    default: Date.now },
 });
 

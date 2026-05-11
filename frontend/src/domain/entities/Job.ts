@@ -24,9 +24,12 @@ export interface JobApplication {
   id: string;
   jobId: string;
   candidateId: string;
-  status: 'applied' | 'screening' | 'interviewing' | 'offered' | 'rejected';
+  status: 'applied' | 'screening' | 'interviewing' | 'offered' | 'rejected' | 'under_review' | 'shortlisted' | 'hired';
   appliedDate: Date;
   updatedDate: Date;
   coverLetter?: string;
   notes?: string;
 }
+
+export type ApplicationStatus = JobApplication['status'];
+
