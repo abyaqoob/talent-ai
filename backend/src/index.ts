@@ -60,7 +60,8 @@ const userController = new UserController(
   getProfileUseCase,
   analyzeCvUseCase,
   saveCompanyProfileUseCase,
-  getCompanyProfileUseCase
+  getCompanyProfileUseCase,
+  userRepository        // ← for changePassword use case
 );
 
 // ============ JOB & APPLICATION SETUP ✅ ============

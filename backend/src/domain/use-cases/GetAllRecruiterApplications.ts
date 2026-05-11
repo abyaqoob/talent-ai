@@ -22,8 +22,16 @@ export class GetAllRecruiterApplications {
         // 3. Populate Job and Candidate details
         const result = await Promise.all(applications.map(async (app) => {
             const job = jobs.find(j => j.id === app.jobId);
-            const user = await this.userRepo.findById(app.candidateId);
-            const profile = await (this.userRepo as any).getProfile(app.candidateId);
+            
+            let user = null;
+            let profile = null;
+            try {
+                user = await this.userRepo.findById(app.candidateId);
+                // getProfile is defined on IUserRepository — call it directly (no cast needed)
+                profile = await this.userRepo.getProfile(app.candidateId);
+            } catch (e) {
+                console.warn('Could not load candidate data for application', app.id, e);
+            }
 
             return {
                 ...app,
@@ -41,4 +49,4 @@ export class GetAllRecruiterApplications {
 
         return result;
     }
-}
+}

@@ -30,6 +30,10 @@ const CompanyProfileSchema = new Schema<CompanyProfileDocument>(
         description: {
             type: String,
             default: ''
+        },
+        location: {
+            type: String,
+            default: ''
         }
     },
     {

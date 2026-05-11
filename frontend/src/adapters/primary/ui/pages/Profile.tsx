@@ -89,6 +89,14 @@ export default function Profile() {
                   </div>
                 </div>
               )}
+              {/* BUG 8: Profile views count */}
+              {!loading && profile && (profile as any).profileViews !== undefined && (
+                <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>
+                  👁 <span style={{ color: 'var(--accent-secondary)', fontWeight: 600 }}>
+                    {(profile as any).profileViews || 0}
+                  </span> profile views this month
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-2">

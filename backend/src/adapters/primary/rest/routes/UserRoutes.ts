@@ -40,5 +40,11 @@ export function createUserRoutes(ctrl: UserController): Router {
   // Saved jobs
   router.post('/saved-jobs/:jobId', authMiddleware, ctrl.saveJob);
 
+  // Profile view tracking (BUG 8)
+  router.post('/profile-view/:userId', authMiddleware, ctrl.incrementProfileViews);
+
+  // Password change (BUG 10)
+  router.post('/change-password', authMiddleware, ctrl.changePassword);
+
   return router;
 }

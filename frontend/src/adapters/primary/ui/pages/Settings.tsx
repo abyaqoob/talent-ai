@@ -8,6 +8,7 @@ import { Switch } from '@/adapters/primary/ui/components/base/switch';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/presentation/hooks/useAuth';
 import { Container } from '@/infrastructure/di/Container';
+import { apiClient } from '@/infrastructure/api/apiClient';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -28,27 +29,60 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [savingPwd, setSavingPwd] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !currentPassword) { setToast('All password fields are required'); return; }
+    if (newPassword !== confirmPassword) { setToast('New passwords do not match'); return; }
+    if (newPassword.length < 6) { setToast('Password must be at least 6 characters'); return; }
+    setSavingPwd(true);
+    try {
+      await apiClient.post('/users/change-password', { currentPassword, newPassword });
+      setToast('Password changed successfully!');
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+    } catch (e: any) {
+      setToast(e?.message || 'Failed to change password');
+    } finally {
+      setSavingPwd(false);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
 
   useEffect(() => {
-    if (user?.id) {
-      setName(user.name || '');
-      setEmail(user.email || '');
-      // If we fetch full profile or it comes from useAuth
-      setPhone(user.phone || '');
-      setLocation(user.location || '');
+    if (!user?.id) return;
+    // Set basic info from session immediately
+    setName(user.name || '');
+    setEmail(user.email || '');
+    setPhone((user as any).phone || '');
+    setLocation((user as any).location || '');
+    
+    // Also fetch full candidate profile from API for phone/location/bio
+    const fetchProfile = async () => {
+      try {
+        const profile = await Container.getUserRepository().getCandidateProfile(user.id);
+        if (profile) {
+          // profile.phone and profile.location come from the User base (not candidate profile)
+          // but name/email are always available from session
+          if ((profile as any).phone) setPhone((profile as any).phone);
+          if ((profile as any).location) setLocation((profile as any).location);
+        }
+      } catch { /* silent — session data is enough */ }
       setLoading(false);
-    }
-  }, [user]);
+    };
+    fetchProfile();
+  }, [user?.id]);
 
   const handleSaveAccount = async () => {
     if (!user?.id) return;
     setSaving(true);
     try {
-      // Container.getUserRepository().update(...)
-      const repo = Container.getUserRepository() as any;
-      if (repo.update) {
-          await repo.update(user.id, { name, phone, location });
-      }
+      // Update base user fields (name, phone, location) via PUT /api/users/profile
+      await Container.getUserRepository().update(user.id, { name, phone, location } as any);
       setToast('Account details saved!');
     } catch (e: any) {
       setToast(e?.message || 'Failed to save account');
@@ -228,13 +262,20 @@ export default function Settings() {
                       Current Password
                     </Label>
                     <div className="relative mt-1.5">
-                      <Input id="currentPassword" type={showPassword ? 'text' : 'password'} />
+                      <Input
+                        id="currentPassword"
+                        type={showCurrentPwd ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                        placeholder="Enter current password"
+                      />
                       <button
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={() => setShowCurrentPwd(!showCurrentPwd)}
                         className="absolute right-3 top-1/2 -translate-y-1/2"
                         style={{ color: 'var(--text-muted)' }}
+                        type="button"
                       >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showCurrentPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
@@ -242,19 +283,34 @@ export default function Settings() {
                     <Label htmlFor="newPassword" style={{ color: 'var(--text-secondary)' }}>
                       New Password
                     </Label>
-                    <Input id="newPassword" type="password" className="mt-1.5" />
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Min 6 characters"
+                      className="mt-1.5"
+                    />
                   </div>
                   <div>
                     <Label htmlFor="confirmPassword" style={{ color: 'var(--text-secondary)' }}>
                       Confirm New Password
                     </Label>
-                    <Input id="confirmPassword" type="password" className="mt-1.5" />
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat new password"
+                      className="mt-1.5"
+                    />
                   </div>
                 </div>
 
                 <div className="mt-6">
-                  <Button variant="gradient" className="shadow-[var(--shadow-glow)]">
-                    Update Password
+                  <Button variant="gradient" className="shadow-[var(--shadow-glow)]" onClick={handleChangePassword} disabled={savingPwd}>
+                    {savingPwd ? <Loader2 className="w-4 h-4 animate-spin mr-2 inline" /> : null}
+                    {savingPwd ? 'Updating...' : 'Update Password'}
                   </Button>
                 </div>
               </div>

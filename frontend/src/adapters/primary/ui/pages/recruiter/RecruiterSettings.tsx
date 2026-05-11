@@ -14,9 +14,14 @@ export default function RecruiterSettings() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Account fields (from auth session)
-  const [name] = useState(user?.name || '');
-  const [email] = useState(user?.email || '');
+  // Account fields — use useEffect so they populate after auth loads
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    if (user?.name) setName(user.name);
+    if (user?.email) setEmail(user.email);
+  }, [user?.name, user?.email]);
 
   // Company fields
   const [companyName, setCompanyName] = useState('');

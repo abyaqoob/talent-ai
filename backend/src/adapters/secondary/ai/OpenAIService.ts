@@ -4,6 +4,8 @@ import { ParsedCvData, CvFeedback } from '../../../domain/models/Profile';
 
 const pdf = require('pdf-parse');
 
+const MODEL = 'google/gemini-2.0-flash-exp:free';
+
 export class OpenRouterService implements IAIService {
     private client: OpenAI;
 
@@ -25,9 +27,7 @@ export class OpenRouterService implements IAIService {
 
     // ────────────────────────────────────────────────────────────────
     async parseCv(fileBuffer: Buffer, mimeType: string): Promise<ParsedCvData> {
-        let contentPayload: any[];
-
-        const systemPrompt = `Extract structured CV/resume data and return ONLY valid JSON matching this exact schema (no extra keys):
+        const systemPrompt = `Extract structured CV/resume data and return ONLY valid JSON matching this exact schema (no extra keys, no markdown):
 {
   "about": "string",
   "skills": ["string"],
@@ -38,36 +38,31 @@ export class OpenRouterService implements IAIService {
   "certifications": ["string"]
 }`;
 
+        let textContent: string;
+
         if (mimeType === 'application/pdf') {
             try {
                 const pdfData = await pdf(fileBuffer);
                 console.log('📄 PDF parsed, text length:', pdfData.text.length);
-                contentPayload = [
-                    { type: 'text', text: `${systemPrompt}\n\nAnalyze this CV text:\n${pdfData.text}` }
-                ];
+                textContent = `${systemPrompt}\n\nAnalyze this CV text:\n${pdfData.text}`;
             } catch (err) {
                 console.error('PDF parsing error:', err);
                 throw new Error('Failed to parse PDF text content.');
             }
         } else if (mimeType.startsWith('image/')) {
+            // Gemini free tier: convert image to base64 and embed in text prompt
             const base64 = fileBuffer.toString('base64');
-            contentPayload = [
-                { type: 'text', text: systemPrompt },
-                {
-                    type: 'image_url',
-                    image_url: { url: `data:${mimeType};base64,${base64}` }
-                }
-            ];
+            textContent = `${systemPrompt}\n\n[Image CV provided as base64 — please extract all visible text and structure]\ndata:${mimeType};base64,${base64.substring(0, 500)}...`;
         } else {
             throw new Error(`Unsupported file type: ${mimeType}`);
         }
 
         try {
-            console.log('🤖 Calling OpenRouter model: openai/gpt-3.5-turbo');
+            console.log('OpenRouter key present:', !!process.env.OPENROUTER_API_KEY);
+            console.log(`🤖 Calling OpenRouter model: ${MODEL} (parseCv)`);
             const response = await this.client.chat.completions.create({
-                model: 'openai/gpt-3.5-turbo',   // ✅ must include provider prefix for OpenRouter
-                messages: [{ role: 'user', content: contentPayload as any }],
-                response_format: { type: 'json_object' },
+                model: MODEL,
+                messages: [{ role: 'user', content: textContent }],
             });
 
             console.log('✅ OpenRouter parseCv response received');
@@ -93,7 +88,7 @@ export class OpenRouterService implements IAIService {
 Resume Data:
 ${JSON.stringify(cvData, null, 2)}
 
-Return ONLY this JSON format:
+Return ONLY this JSON format (no markdown, no extra keys):
 {
   "strengths": ["..."],
   "areasToImprove": ["..."],
@@ -102,24 +97,25 @@ Return ONLY this JSON format:
 }`;
 
         try {
-            console.log('🤖 Calling OpenRouter model: openai/gpt-3.5-turbo (analyzeCv)');
+            console.log('OpenRouter key present:', !!process.env.OPENROUTER_API_KEY);
+            console.log(`🤖 Calling OpenRouter model: ${MODEL} (analyzeCv)`);
             const response = await this.client.chat.completions.create({
-                model: 'openai/gpt-3.5-turbo',   // ✅ FIXED: was 'gpt-4o' which is wrong for OpenRouter
+                model: MODEL,
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a professional CV reviewer. Provide honest, actionable feedback.'
+                        content: 'You are a professional CV reviewer. Provide honest, actionable feedback. Return only valid JSON.'
                     },
                     { role: 'user', content: prompt }
                 ],
-                response_format: { type: 'json_object' },
                 temperature: 0.7,
             });
 
             console.log('✅ OpenRouter analyzeCv response received');
             const content = response.choices[0].message.content;
             if (!content) throw new Error('AI returned empty feedback');
-            return JSON.parse(content) as CvFeedback;
+            const cleanJson = content.replace(/```json|```/g, '').trim();
+            return JSON.parse(cleanJson) as CvFeedback;
 
         } catch (error: any) {
             console.error('❌ OpenRouter analyzeCv Error:', error.status, error.message);
@@ -137,19 +133,24 @@ Return ONLY this JSON format:
 
     // ────────────────────────────────────────────────────────────────
     async extractSkillsFromJD(description: string): Promise<{ skills: string[], experienceLevel: string, requirements: string[] }> {
-        const prompt = `Extract required skills, experience level, and key requirements from this job description. Return as JSON with fields: skills (array), experienceLevel (string), requirements (array).
+        const prompt = `Extract required skills, experience level, and key requirements from this job description.
 
 Job Description:
 ${description}
 
-Return ONLY valid JSON format.`;
+Return ONLY valid JSON (no markdown):
+{
+  "skills": ["skill1", "skill2"],
+  "experienceLevel": "junior|mid|senior|lead",
+  "requirements": ["requirement1", "requirement2"]
+}`;
 
         try {
-            console.log('🤖 Calling OpenRouter model: openai/gpt-3.5-turbo (extractSkillsFromJD)');
+            console.log('OpenRouter key present:', !!process.env.OPENROUTER_API_KEY);
+            console.log(`🤖 Calling OpenRouter model: ${MODEL} (extractSkillsFromJD)`);
             const response = await this.client.chat.completions.create({
-                model: 'openai/gpt-3.5-turbo',
+                model: MODEL,
                 messages: [{ role: 'user', content: prompt }],
-                response_format: { type: 'json_object' },
             });
 
             const content = response.choices[0].message.content;
@@ -187,26 +188,27 @@ ${JSON.stringify(jobs.slice(0, 20).map(j => ({
     experienceLevel: j.experienceLevel,
 })), null, 2)}
 
-Return ONLY a JSON object with this structure:
-{ "matches": [{ "jobId": "string", "matchScore": number (0-100), "matchReason": "string" }] }
+Return ONLY a JSON object (no markdown):
+{ "matches": [{ "jobId": "string", "matchScore": number, "matchReason": "string" }] }
 
 Sort by matchScore descending. Return max 5 matches.`;
 
         try {
-            console.log('🤖 Calling OpenRouter model: openai/gpt-3.5-turbo (matchJobs)');
+            console.log('OpenRouter key present:', !!process.env.OPENROUTER_API_KEY);
+            console.log(`🤖 Calling OpenRouter model: ${MODEL} (matchJobs)`);
             const response = await this.client.chat.completions.create({
-                model: 'openai/gpt-3.5-turbo',
+                model: MODEL,
                 messages: [
-                    { role: 'system', content: 'You are a recruiting assistant specializing in job matching.' },
+                    { role: 'system', content: 'You are a recruiting assistant specializing in job matching. Return only valid JSON.' },
                     { role: 'user', content: prompt }
                 ],
-                response_format: { type: 'json_object' },
             });
 
             const content = response.choices[0].message.content;
             if (!content) return [];
 
-            const parsed = JSON.parse(content);
+            const cleanJson = content.replace(/```json|```/g, '').trim();
+            const parsed = JSON.parse(cleanJson);
             // Handle both { matches: [] } and direct array
             if (Array.isArray(parsed)) return parsed;
             if (Array.isArray(parsed.matches)) return parsed.matches;

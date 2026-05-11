@@ -78,21 +78,21 @@ function calculateCompleteness(profile: any, user: any): number {
   return Math.min(100, score);
 }
 
-function mapRecruiter(raw: any): Recruiter {
-  const base = getSessionUser() || {};
+function mapRecruiter(profileData: any, base?: any): Recruiter {
+  const sessionUser = base || getSessionUser() || {};
   return {
-    id: base._id || base.id || '',
-    name: base.name || '',
-    email: base.email || '',
+    id: sessionUser._id || sessionUser.id || '',
+    name: sessionUser.name || '',
+    email: sessionUser.email || '',
     role: 'recruiter',
-    profilePicture: base.profilePicture,
-    phone: base.phone,
-    location: base.location,
-    createdAt: new Date(base.createdAt || Date.now()),
-    company: raw.companyName || raw.company || '',
-    companySize: raw.companySize,
-    industry: raw.industry,
-    website: raw.website,
+    profilePicture: sessionUser.profilePicture,
+    phone: sessionUser.phone,
+    location: profileData.location || sessionUser.location,
+    createdAt: new Date(sessionUser.createdAt || Date.now()),
+    company: profileData.companyName || profileData.company || '',
+    companySize: profileData.companySize || '',
+    industry: profileData.industry || '',
+    website: profileData.website || '',
   };
 }
 
@@ -136,7 +136,8 @@ export class ApiUserRepository implements IUserRepository {
       const res = await apiClient.get<any>('/users/company/profile');
       const profileData = res?.data || res;
       if (!profileData) return null;
-      return mapRecruiter(profileData);
+      const sessionUser = getSessionUser() || {};
+      return mapRecruiter(profileData, sessionUser);
     } catch {
       return null;
     }
@@ -158,6 +159,7 @@ export class ApiUserRepository implements IUserRepository {
       companySize: profile.companySize,
       industry: profile.industry,
       website: profile.website,
+      location: profile.location,
     });
     const updated = await this.getRecruiterProfile(_id);
     if (updated) return updated;

@@ -22,18 +22,20 @@ export class MongooseUserRepository implements IUserRepository {
   }
 
   async findById(id: string) {
-    const userDoc = await UserModel.findOne({ id });
+    // Try custom `id` field first, then fall back to MongoDB `_id`
+    const userDoc = await UserModel.findOne({ $or: [{ id }, { _id: id }] }).catch(() => null)
+                  ?? await UserModel.findOne({ id });
     if (!userDoc) return null;
     return {
-    id: userDoc.id,
-    name: userDoc.name,
-    email: userDoc.email,
-    passwordHash: userDoc.passwordHash,
-    role: userDoc.role as 'candidate' | 'recruiter' | 'admin',
-    createdAt: userDoc.createdAt as Date,
-    phone: userDoc.get('phone')?? null,    
-    location: userDoc.get('location')?? null 
-  };
+      id: userDoc.id,
+      name: userDoc.name,
+      email: userDoc.email,
+      passwordHash: userDoc.passwordHash,
+      role: userDoc.role as 'candidate' | 'recruiter' | 'admin',
+      createdAt: userDoc.createdAt as Date,
+      phone: userDoc.get('phone') ?? null,    
+      location: userDoc.get('location') ?? null 
+    };
   }
 
 async save(user: User): Promise<User> {

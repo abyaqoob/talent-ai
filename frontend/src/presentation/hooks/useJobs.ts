@@ -16,7 +16,11 @@ export function useJobs() {
       setLoading(true);
       setError(null);
       const allJobs = await Container.getGetAllJobsUseCase().execute();
-      setJobs(allJobs);
+      // BUG 5 fix: deduplicate by id/_id to guard against test data duplicates
+      const unique = Array.from(
+        new Map(allJobs.map((j: any) => [j._id || j.id, j])).values()
+      ) as Job[];
+      setJobs(unique);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
     } finally {

@@ -189,8 +189,49 @@ export default function JobDetail() {
                 )}
                 {activeTab === 'company' && (
                   <div>
-                    <h3 className="text-lg mb-4" style={{ color: 'var(--text-primary)' }}>About {jobData.company || 'the Company'}</h3>
-                    <p className="mb-6 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>A great place to work with an amazing culture and competitive benefits.</p>
+                    <h3 className="text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
+                      About {jobData.company?.companyName || jobData.company || 'the Company'}
+                    </h3>
+                    {jobData.company ? (
+                      <div className="space-y-4">
+                        {jobData.company.companyName && (
+                          <div className="flex justify-between py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Company</span>
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{jobData.company.companyName}</span>
+                          </div>
+                        )}
+                        {jobData.company.industry && (
+                          <div className="flex justify-between py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Industry</span>
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{jobData.company.industry}</span>
+                          </div>
+                        )}
+                        {jobData.company.companySize && (
+                          <div className="flex justify-between py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Company Size</span>
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{jobData.company.companySize} employees</span>
+                          </div>
+                        )}
+                        {jobData.company.website && (
+                          <div className="flex justify-between py-3">
+                            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Website</span>
+                            <a href={jobData.company.website} target="_blank" rel="noopener noreferrer"
+                              className="text-sm font-medium" style={{ color: 'var(--accent-primary)' }}>
+                              {jobData.company.website}
+                            </a>
+                          </div>
+                        )}
+                        {jobData.company.description && (
+                          <p className="mt-4 leading-relaxed text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            {jobData.company.description}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                        Company information not available.
+                      </p>
+                    )}
                   </div>
                 )}
               </motion.div>

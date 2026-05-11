@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
 import { RegisterUser } from '../../../../domain/use-cases/RegisterUser';
 import { AppError } from '../../../../shared/errors/AppError';
 import { LoginUser } from '@/domain/use-cases/LoginUser';
@@ -10,6 +11,9 @@ import { GetProfileUseCase } from '@/domain/use-cases/GetProfileUseCase';
 import { AnalyzeCvUseCase } from '@/domain/use-cases/AnalyzeCvUseCase';
 import { SaveCompanyProfileUseCase } from '@/domain/use-cases/SaveCompanyProfileUseCase';
 import { GetCompanyProfileUseCase } from '@/domain/use-cases/GetCompanyProfileUseCase';
+import { UserModel } from '../../../secondary/db/UserSchema';
+import { CandidateProfileModel } from '../../../secondary/db/CandidateProfile';
+import { IUserRepository } from '@/domain/ports/secondary/IUserRepository';
 export class UserController {
   constructor(
     private registerUser: RegisterUser,
@@ -21,7 +25,8 @@ export class UserController {
     private getProfileUseCase: GetProfileUseCase,
     private analyzeCvUseCase: AnalyzeCvUseCase,
     private saveCompanyProfileUseCase: SaveCompanyProfileUseCase,
-    private getCompanyProfileUseCase: GetCompanyProfileUseCase
+    private getCompanyProfileUseCase: GetCompanyProfileUseCase,
+    private userRepository?: IUserRepository
   ) {}
 
   register = async (req: Request, res: Response) => {
@@ -96,25 +101,36 @@ export class UserController {
       if (!req.file) {
         return res.status(400).json({ 
           success: false, 
-          message: 'Upload failed',
           error: 'No file uploaded' 
         });
       }
 
+      // Get userId from JWT token (set by authMiddleware)
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+      }
+
+      console.log('📄 Parsing CV for user:', userId);
       const cvData = await this.parseCvUseCase.execute(
         req.file.buffer, 
         req.file.mimetype
       );
+
+      // ✅ CRITICAL FIX: Save parsed CV data to MongoDB immediately after parsing
+      console.log('💾 Saving parsed CV data to MongoDB for user:', userId);
+      await this.saveProfileUseCase.execute(userId, cvData);
+      console.log('✅ CV data saved to MongoDB successfully');
 
       res.json({ 
         success: true, 
         data: cvData 
       });
     } catch (err: any) {
-      console.error('CV Upload Error:', err);
+      console.error('CV Upload Error:', err.message, err.stack);
       return res.status(500).json({
-        message: 'Upload failed',
-        error: err.message || 'Internal server error'
+        success: false,
+        message: err.message || 'Internal server error'
       });
     }
   };
@@ -220,19 +236,52 @@ export class UserController {
 
   saveJob = async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).user?.id;
       const jobId = req.params.jobId;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
       if (!jobId) return res.status(400).json({ error: 'Job ID is required' });
-      
-      const { UserModel } = require('../../secondary/db/UserSchema');
-      await UserModel.findOneAndUpdate(
-        { id: userId },
-        { $addToSet: { savedJobs: jobId } }
-      );
-      
+      await UserModel.findOneAndUpdate({ id: userId }, { $addToSet: { savedJobs: jobId } });
       res.json({ success: true, message: 'Job saved successfully' });
-    } catch (err) {
-      this.handleError(res, err);
+    } catch (err: any) {
+      console.error('saveJob error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  incrementProfileViews = async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      await CandidateProfileModel.findOneAndUpdate(
+        { userId },
+        { $inc: { profileViews: 1 } }
+      );
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  changePassword = async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { currentPassword, newPassword } = req.body;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'currentPassword and newPassword are required' });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      }
+      const user = await this.userRepository?.findById(userId);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      const isMatch = await bcrypt.compare(currentPassword, user.passwordHash!);
+      if (!isMatch) return res.status(400).json({ error: 'Current password is incorrect' });
+      const hash = await bcrypt.hash(newPassword, 10);
+      await UserModel.findOneAndUpdate({ id: userId }, { passwordHash: hash });
+      res.json({ success: true, message: 'Password changed successfully' });
+    } catch (err: any) {
+      console.error('changePassword error:', err);
+      res.status(500).json({ error: err.message });
     }
   };
 }

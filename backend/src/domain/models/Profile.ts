@@ -59,4 +59,5 @@ export interface ICompanyProfile {
     companySize: string;
     website: string;
     description: string;
+    location?: string;
 }

@@ -77,7 +77,13 @@ export class JobController {
         try {
             const useCase = new GetJobById(this.jobRepo);
             const job = await useCase.execute(req.params.id);
-            res.json(job);
+            if (!job) return res.status(404).json({ error: 'Job not found' });
+            // Fetch company profile for this job's recruiter
+            let company = null;
+            try {
+                company = await this.userRepo.getCompanyProfile(job.recruiterId);
+            } catch { /* non-critical */ }
+            res.json({ ...job, company: company || null });
         } catch (error: any) {
             res.status(error.statusCode || 500).json({ error: error.message });
         }
