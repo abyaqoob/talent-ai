@@ -1,9 +1,11 @@
 /**
  * API Client - Centralized HTTP client for backend communication.
- * Automatically attaches the JWT Bearer token from localStorage.
+ * Automatically handles the switch between local and production URLs.
  */
 
-const API_BASE = '/api';
+// Use the VITE_API_URL from environment variables, or fallback to local for dev
+// We append '/api' because your backend routes usually start with that prefix
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 function getToken(): string | null {
   const stored = localStorage.getItem('auth_session');
