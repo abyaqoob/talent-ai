@@ -1,26 +1,59 @@
-import { motion } from 'motion/react';
-import { Upload, Eye, EyeOff, User, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Upload, Eye, EyeOff, User, Loader2, AlertTriangle } from 'lucide-react';
 import { AppLayout } from '@/adapters/primary/ui/components/layout/AppLayout';
 import { Button } from '@/adapters/primary/ui/components/base/button';
 import { Input } from '@/adapters/primary/ui/components/base/input';
 import { Label } from '@/adapters/primary/ui/components/base/label';
 import { Switch } from '@/adapters/primary/ui/components/base/switch';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '@/presentation/hooks/useAuth';
 import { Container } from '@/infrastructure/di/Container';
 import { apiClient } from '@/infrastructure/api/apiClient';
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, logout, updateUserFields } = useAuth();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('account');
   const [showPassword, setShowPassword] = useState(false);
   const [notifications, setNotifications] = useState({
     jobMatches: true,
     applicationUpdates: true,
     messages: true,
-    profileViews: false,
-    weeklyDigest: false,
   });
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('profilePicture', file);
+
+    setUploadingPhoto(true);
+    try {
+      const res = await apiClient.upload<any>('/users/profile-picture', formData);
+      if (res?.profilePicture) {
+        updateUserFields({ profilePicture: res.profilePicture });
+        setToast('Profile picture updated successfully!');
+      }
+    } catch (err: any) {
+      setToast(err.message || 'Failed to upload photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    try {
+      await apiClient.put('/users/profile', { profilePicture: '' });
+      updateUserFields({ profilePicture: '' });
+      setToast('Profile picture removed');
+    } catch (err: any) {
+      setToast(err.message || 'Failed to remove photo');
+    }
+  };
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -35,6 +68,26 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showCurrentPwd, setShowCurrentPwd] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
+
+  // Delete account state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await apiClient.delete('/users/profile');
+      setToast('Account deleted. Redirecting...');
+      setTimeout(async () => {
+        await logout();
+        navigate('/');
+      }, 2000);
+    } catch (e: any) {
+      setToast(e?.message || 'Failed to delete account');
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (!newPassword || !currentPassword) { setToast('All password fields are required'); return; }
@@ -77,6 +130,21 @@ export default function Settings() {
     fetchProfile();
   }, [user?.id]);
 
+  // Load notification preferences
+  useEffect(() => {
+    if (!user?.id) return;
+    apiClient.get<any>('/users/notification-prefs')
+      .then(prefs => {
+        setNotifications({
+          jobMatches: prefs.jobMatches !== false,
+          applicationUpdates: prefs.applicationUpdates !== false,
+          messages: prefs.messages !== false,
+        });
+        setPrefsLoaded(true);
+      })
+      .catch(() => setPrefsLoaded(true));
+  }, [user?.id]);
+
   const handleSaveAccount = async () => {
     if (!user?.id) return;
     setSaving(true);
@@ -96,7 +164,6 @@ export default function Settings() {
     { id: 'account', label: 'Account', danger: false },
     { id: 'password', label: 'Password & Security', danger: false },
     { id: 'notifications', label: 'Notifications', danger: false },
-    { id: 'privacy', label: 'Privacy', danger: false },
     { id: 'danger', label: 'Danger Zone', danger: true },
   ];
 
@@ -189,19 +256,39 @@ export default function Settings() {
                         </Label>
                         <div className="flex items-center gap-4">
                           <div
-                            className="w-18 h-18 rounded-full flex items-center justify-center"
-                            style={{ background: '#047857' }}
+                            className="w-18 h-18 rounded-full flex items-center justify-center overflow-hidden border border-[var(--border-subtle)]"
+                            style={{ background: 'var(--bg-tertiary)' }}
                           >
-                            <span className="text-white text-2xl font-bold">
-                              {name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || <User className="w-9 h-9 text-white" />}
-                            </span>
+                            {user?.profilePicture ? (
+                              <img src={user.profilePicture} alt={name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[var(--text-primary)] text-2xl font-bold">
+                                {name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || <User className="w-9 h-9 text-white" />}
+                              </span>
+                            )}
                           </div>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
-                              <Upload className="w-4 h-4" />
+                            <input
+                              type="file"
+                              id="profile-upload"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              style={{ display: 'none' }}
+                            />
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              disabled={uploadingPhoto}
+                              onClick={() => document.getElementById('profile-upload')?.click()}
+                            >
+                              {uploadingPhoto ? (
+                                <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                              ) : (
+                                <Upload className="w-4 h-4 mr-1" />
+                              )}
                               Upload Photo
                             </Button>
-                            <Button variant="ghost" size="sm" style={{ color: 'var(--danger)' }}>
+                            <Button variant="ghost" size="sm" style={{ color: 'var(--danger)' }} onClick={handleRemovePhoto}>
                               Remove
                             </Button>
                           </div>
@@ -330,8 +417,6 @@ export default function Settings() {
                     { id: 'jobMatches', label: 'New job matches', description: 'Get notified when new jobs match your profile' },
                     { id: 'applicationUpdates', label: 'Application updates', description: 'Updates about your job applications' },
                     { id: 'messages', label: 'Messages', description: 'New messages from recruiters' },
-                    { id: 'profileViews', label: 'Profile views', description: 'When recruiters view your profile' },
-                    { id: 'weeklyDigest', label: 'Weekly digest', description: 'Weekly summary of activity' },
                   ].map((item) => (
                     <div
                       key={item.id}
@@ -348,27 +433,15 @@ export default function Settings() {
                       </div>
                       <Switch
                         checked={notifications[item.id as keyof typeof notifications]}
-                        onCheckedChange={(checked) =>
-                          setNotifications({ ...notifications, [item.id]: checked })
-                        }
+                        onCheckedChange={(checked) => {
+                          const updated = { ...notifications, [item.id]: checked };
+                          setNotifications(updated);
+                          apiClient.put('/users/notification-prefs', updated).catch(() => {});
+                        }}
                       />
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {activeSection === 'privacy' && (
-              <div
-                className="p-6 rounded-2xl"
-                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
-              >
-                <h3 className="text-lg mb-6" style={{ color: 'var(--text-primary)' }}>
-                  Privacy Settings
-                </h3>
-                <p style={{ color: 'var(--text-secondary)' }}>
-                  Privacy settings coming soon. Control who can see your profile and activity.
-                </p>
               </div>
             )}
 
@@ -383,7 +456,7 @@ export default function Settings() {
                 <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
                   Once you delete your account, there is no going back. Please be certain.
                 </p>
-                <Button variant="destructive">
+                <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
                   Delete My Account
                 </Button>
               </div>
@@ -391,6 +464,51 @@ export default function Settings() {
           </motion.div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md p-8 rounded-3xl"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-modal)' }}
+            >
+              <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              
+              <h2 className="text-2xl mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                Delete Account?
+              </h2>
+              <p className="mb-8" style={{ color: 'var(--text-secondary)' }}>
+                This will permanently remove your profile, applications, and all data. This action cannot be undone.
+              </p>
+
+              <div className="flex gap-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1" 
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  className="flex-1" 
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                >
+                  {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete Everything'}
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }

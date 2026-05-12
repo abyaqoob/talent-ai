@@ -2,6 +2,10 @@ import { Search, Bell, PanelLeft } from 'lucide-react';
 import { ThemeToggle } from '../ThemeToggle';
 import { useNavigate } from 'react-router';
 import { ProfileDropdown } from './ProfileDropdown';
+import { useAuth } from '@/presentation/hooks/useAuth';
+import { apiClient } from '@/infrastructure/api/apiClient';
+import { useState, useEffect, useRef } from 'react';
+import { io as socketIO, Socket } from 'socket.io-client';
 
 interface TopbarProps {
   onToggleSidebar?: () => void;
@@ -9,6 +13,37 @@ interface TopbarProps {
 
 export function Topbar({ onToggleSidebar }: TopbarProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const socketRef = useRef<Socket | null>(null);
+
+  // Fetch initial unread count
+  useEffect(() => {
+    if (!user?.id) return;
+
+    apiClient.get<{ count: number }>('/notifications/unread-count')
+      .then(data => setUnreadCount(data.count))
+      .catch(() => {});
+  }, [user?.id]);
+
+  // Listen for real-time notifications via Socket.io
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const socket = socketIO('http://localhost:5001', { withCredentials: true });
+    socketRef.current = socket;
+
+    socket.emit('join', user.id);
+
+    socket.on('new_notification', () => {
+      setUnreadCount(prev => prev + 1);
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [user?.id]);
 
   return (
     <header
@@ -54,7 +89,14 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           style={{ color: 'var(--text-secondary)' }}
         >
           <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: 'var(--danger)' }} />
+          {unreadCount > 0 && (
+            <span
+              className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1"
+              style={{ background: 'var(--danger)' }}
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </button>
         <ProfileDropdown />
       </div>

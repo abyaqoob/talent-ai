@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { Briefcase, Calendar, MapPin, Eye, LayoutGrid, List } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
 import { AppLayout } from '@/adapters/primary/ui/components/layout/AppLayout';
 import { useApplications } from '@/presentation/hooks/useApplications';
 import { useAuth } from '@/presentation/hooks/useAuth';
@@ -32,12 +33,29 @@ export default function Applications() {
   useEffect(() => {
     const fetchTitles = async () => {
       const titles: Record<string, string> = {};
-      const uniqueJobIds = [...new Set(applications.map(a => a.jobId))];
+      const pendingJobIds: string[] = [];
+
+      applications.forEach(app => {
+        const jobId = typeof app.jobId === 'object' ? (app.jobId.id || app.jobId._id) : app.jobId;
+        
+        if (typeof app.jobId === 'object' && app.jobId !== null) {
+          const job = app.jobId;
+          const companyName = typeof job.company === 'object' ? (job.company.companyName || job.company.name) : job.company;
+          titles[jobId] = `${job.title} @ ${companyName}`;
+        } else if (jobId) {
+          pendingJobIds.push(jobId);
+        }
+      });
+
+      const uniquePendingIds = [...new Set(pendingJobIds)];
       await Promise.all(
-        uniqueJobIds.map(async jobId => {
+        uniquePendingIds.map(async jobId => {
           try {
             const job = await getJobById(jobId);
-            if (job) titles[jobId] = `${job.title} @ ${job.company}`;
+            if (job) {
+              const companyName = typeof job.company === 'object' ? (job.company.companyName || job.company.name) : job.company;
+              titles[jobId] = `${job.title} @ ${companyName}`;
+            }
           } catch { /* skip */ }
         })
       );
@@ -143,9 +161,12 @@ export default function Applications() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {getAppsForStatus(column.id).map(app => (
-                    <AppCard key={app.id} app={app} jobTitle={jobTitles[app.jobId]} columnId={column.id} />
-                  ))}
+                  {getAppsForStatus(column.id).map(app => {
+                    const jobId = typeof app.jobId === 'object' ? (app.jobId.id || app.jobId._id) : app.jobId;
+                    return (
+                      <AppCard key={app.id} app={app} jobTitle={jobTitles[jobId]} columnId={column.id} />
+                    );
+                  })}
                   {getAppsForStatus(column.id).length === 0 && (
                     <div className="p-8 rounded-xl text-center text-sm" style={{ border: '2px dashed var(--border-subtle)', color: 'var(--text-muted)' }}>
                       No applications
@@ -167,6 +188,7 @@ export default function Applications() {
           >
             {applications.map(app => {
               const col = STATUS_COLUMNS.find(c => c.id === app.status);
+              const jobId = typeof app.jobId === 'object' ? (app.jobId.id || app.jobId._id) : app.jobId;
               return (
                 <div
                   key={app.id}
@@ -179,7 +201,7 @@ export default function Applications() {
                     </div>
                     <div>
                       <h3 className="text-lg mb-0.5" style={{ color: 'var(--text-primary)' }}>
-                        {jobTitles[app.jobId] || `Job ${app.jobId.slice(0, 8)}…`}
+                        {jobTitles[jobId] || `Job ${jobId.slice(0, 8)}…`}
                       </h3>
                       <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
                         <Calendar className="w-3 h-3" />
@@ -192,6 +214,14 @@ export default function Applications() {
                       style={{ background: col ? `${col.color}20` : 'transparent', color: col?.color || 'var(--text-muted)' }}>
                       {app.status.replace('_', ' ')}
                     </span>
+                    <Link 
+                      to={`/dashboard/job/${jobId}`}
+                      className="p-2 rounded-lg transition-colors hover:bg-[rgba(5,150,105,0.1)]"
+                      style={{ color: 'var(--accent-primary)', border: '1px solid var(--border-subtle)' }}
+                      title="View Details"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Link>
                   </div>
                 </div>
               );
@@ -204,12 +234,16 @@ export default function Applications() {
 }
 
 function AppCard({ app, jobTitle, columnId }: { app: JobApplication; jobTitle?: string; columnId: string }) {
+  const navigate = useNavigate();
+  const jobId = typeof app.jobId === 'object' ? (app.jobId.id || app.jobId._id) : app.jobId;
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       whileHover={{ scale: 1.02 }}
-      className="p-4 rounded-xl group"
+      className="p-4 rounded-xl group cursor-pointer"
+      onClick={() => navigate(`/dashboard/job/${jobId}`)}
       style={{
         background: 'var(--bg-tertiary)',
         border: '1px solid var(--border-subtle)',
@@ -223,7 +257,7 @@ function AppCard({ app, jobTitle, columnId }: { app: JobApplication; jobTitle?: 
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="text-sm mb-0.5 truncate" style={{ color: 'var(--text-primary)' }}>
-            {jobTitle || `Job ${app.jobId.slice(0, 8)}…`}
+            {jobTitle || `Job ${jobId.slice(0, 8)}…`}
           </h4>
         </div>
       </div>
@@ -232,10 +266,10 @@ function AppCard({ app, jobTitle, columnId }: { app: JobApplication; jobTitle?: 
         {new Date(app.appliedDate).toLocaleDateString()}
       </div>
       <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <button className="text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1" style={{ color: 'var(--accent-primary)' }}>
+        <div className="text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1" style={{ color: 'var(--accent-primary)' }}>
           <Eye className="w-3 h-3" />
           View Details
-        </button>
+        </div>
       </div>
     </motion.div>
   );

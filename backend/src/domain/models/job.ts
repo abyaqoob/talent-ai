@@ -23,6 +23,7 @@ export interface IJob {
     skills?: string[];      // ✅ Added: AI-extracted skills field
     status: 'active' | 'closed';
     views: number;
+    company?: any;          // ✅ Added: Populated company details
     createdAt: Date;
     updatedAt: Date;
 }

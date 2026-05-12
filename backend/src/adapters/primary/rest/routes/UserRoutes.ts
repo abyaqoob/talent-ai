@@ -46,5 +46,12 @@ export function createUserRoutes(ctrl: UserController): Router {
   // Password change (BUG 10)
   router.post('/change-password', authMiddleware, ctrl.changePassword);
 
+  // Notification preferences
+  router.get('/notification-prefs', authMiddleware, ctrl.getNotificationPrefs);
+  router.put('/notification-prefs', authMiddleware, ctrl.saveNotificationPrefs);
+
+  // Profile picture upload
+  router.post('/profile-picture', authMiddleware, upload.single('profilePicture'), ctrl.uploadProfilePicture);
+
   return router;
 }

@@ -1,24 +1,28 @@
 import { IUserRepository } from '../../../domain/ports/secondary/IUserRepository';
 import { User } from '../../../domain/models/User';
 import { UserModel } from './UserSchema';
-import { CandidateProfileModel } from '../db/CandidateProfile';
-import { CompanyProfileModel } from '../db/CompanyProfile';
+import { CandidateProfileModel } from './CandidateProfile';
+import { CompanyProfileModel } from './CompanyProfile';
+import { JobModel } from './JobSchema';
+import { ApplicationModel } from './ApplicationSchema';
+import { MessageModel } from './MessageSchema';
 import { ICandidateProfile, ParsedCvData, ICompanyProfile } from '../../../domain/models/Profile';
 export class MongooseUserRepository implements IUserRepository {
 
   async findByEmail(email: string) {
     const userDoc = await UserModel.findOne({ email });
     if (!userDoc) return null;
-  return {
-    id: userDoc.id,
-    name: userDoc.name,
-    email: userDoc.email,
-    passwordHash: userDoc.passwordHash,
-    role: userDoc.role as 'candidate' | 'recruiter' | 'admin',
-    createdAt: userDoc.createdAt as Date,
-    phone: userDoc.get('phone')?? null,    
-    location: userDoc.get('location')?? null 
-  };
+    return {
+      id: userDoc.id,
+      name: userDoc.name,
+      email: userDoc.email,
+      passwordHash: userDoc.passwordHash,
+      role: userDoc.role as 'candidate' | 'recruiter' | 'admin',
+      createdAt: userDoc.createdAt as Date,
+      phone: userDoc.get('phone')?? null,    
+      location: userDoc.get('location')?? null,
+      profilePicture: userDoc.get('profilePicture') || ''
+    };
   }
 
   async findById(id: string) {
@@ -34,7 +38,8 @@ export class MongooseUserRepository implements IUserRepository {
       role: userDoc.role as 'candidate' | 'recruiter' | 'admin',
       createdAt: userDoc.createdAt as Date,
       phone: userDoc.get('phone') ?? null,    
-      location: userDoc.get('location') ?? null 
+      location: userDoc.get('location') ?? null,
+      profilePicture: userDoc.get('profilePicture') || ''
     };
   }
 
@@ -49,7 +54,8 @@ async save(user: User): Promise<User> {
     role: created.role as 'candidate' | 'recruiter' | 'admin',
     createdAt: created.createdAt,
     phone: created.get('phone')?? null,
-    location: created.get('location') ?? null
+    location: created.get('location') ?? null,
+    profilePicture: created.get('profilePicture') || ''
   };
 }
 
@@ -68,13 +74,44 @@ async save(user: User): Promise<User> {
     role: updatedDoc.role as 'candidate' | 'recruiter' | 'admin',
     createdAt: updatedDoc.createdAt,       
     phone: updatedDoc.get('phone')?? null,        
-    location: updatedDoc.get('location')?? null   
+    location: updatedDoc.get('location')?? null,
+    profilePicture: updatedDoc.get('profilePicture') || ''
   };
 }
 
 async delete(id: string): Promise<boolean> {
-  const result = await UserModel.deleteOne({ id });
-  return result.deletedCount > 0;
+  // 1. Find the user first to determine the role
+  const user = await UserModel.findOne({ id });
+  if (!user) return false;
+
+  try {
+    // 2. Delete Profile (Candidate or Company)
+    if (user.role === 'candidate') {
+      await CandidateProfileModel.deleteOne({ userId: id });
+      // 3. Delete Candidate Applications
+      await ApplicationModel.deleteMany({ candidateId: id });
+    } else if (user.role === 'recruiter') {
+      await CompanyProfileModel.deleteOne({ userId: id });
+      // 4. Delete Recruiter Jobs and their Applications
+      const jobs = await JobModel.find({ recruiterId: id });
+      const jobIds = jobs.map(j => j._id);
+      await ApplicationModel.deleteMany({ jobId: { $in: jobIds } });
+      await JobModel.deleteMany({ recruiterId: id });
+    }
+
+    // 5. Delete Messages (Sent or Received)
+    await MessageModel.deleteMany({
+      $or: [{ senderId: id }, { recipientId: id }]
+    });
+
+    // 6. Delete User record
+    const result = await UserModel.deleteOne({ id });
+    return result.deletedCount > 0;
+
+  } catch (error) {
+    console.error('Delete account failed:', error);
+    throw error;
+  }
 }
 
 

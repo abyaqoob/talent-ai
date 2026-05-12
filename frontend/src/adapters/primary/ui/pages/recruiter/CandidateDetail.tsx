@@ -21,6 +21,7 @@ interface CandidateDetailData {
   experience: Array<{ title: string; company: string; timeline: string; description: string }>;
   education: Array<{ degree: string; institute: string; duration: string }>;
   yearsOfExperience?: number;
+  profilePicture?: string;
 }
 
 export default function CandidateDetail() {
@@ -75,6 +76,7 @@ export default function CandidateDetail() {
         experience: profile.experience || [],
         education: profile.education || [],
         yearsOfExperience: profile.yearsOfExperience,
+        profilePicture: candidate.profilePicture,
       });
 
       // Track profile view (BUG 8)
@@ -205,9 +207,15 @@ export default function CandidateDetail() {
             <div className="p-6 rounded-2xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
               {/* Avatar */}
               <div className="flex flex-col items-center mb-6">
-                <div className="w-24 h-24 rounded-full flex items-center justify-center mb-3 text-white text-2xl font-bold"
-                  style={{ background: blindHiring ? 'rgba(100,100,100,0.3)' : 'linear-gradient(135deg,#047857,#059669)' }}>
-                  {blindHiring ? '?' : initials}
+                <div className="w-24 h-24 rounded-full flex items-center justify-center mb-3 text-white text-2xl font-bold overflow-hidden border border-[var(--border-subtle)]"
+                  style={{ background: blindHiring ? 'rgba(100,100,100,0.3)' : 'var(--bg-tertiary)' }}>
+                  {blindHiring ? (
+                    '?'
+                  ) : data.profilePicture ? (
+                    <img src={data.profilePicture} alt={data.name} className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
                 </div>
                 <h2 className="text-xl mb-1 text-center" style={{ color: 'var(--text-primary)' }}>
                   {blindHiring ? 'Anonymous Candidate' : data.name}

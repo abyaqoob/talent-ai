@@ -36,6 +36,7 @@ export class GetJobApplications {
                     email: user.email,
                     phone: user.phone,
                     location: user.location,
+                    profilePicture: user.profilePicture,
                     profile: profile
                 } : null
             };

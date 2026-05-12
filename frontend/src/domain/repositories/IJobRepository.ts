@@ -1,7 +1,7 @@
 import { Job, JobApplication } from '../entities/Job';
 
 export interface IJobRepository {
-  findAll(): Promise<Job[]>;
+  findAll(filters?: { minSalary?: number; skills?: string[]; experienceLevel?: string; type?: string }): Promise<Job[]>;
   findById(id: string): Promise<Job | null>;
   findByRecruiterId(recruiterId: string): Promise<Job[]>;
   findMatchingJobs(candidateId: string): Promise<Job[]>;

@@ -11,15 +11,37 @@ export function useJobs() {
     loadJobs();
   }, []);
 
-  const loadJobs = async () => {
+  const loadJobs = async (
+    filters?: { minSalary?: number; skills?: string[]; experienceLevel?: string; type?: string },
+    candidateId?: string
+  ) => {
     try {
       setLoading(true);
       setError(null);
-      const allJobs = await Container.getGetAllJobsUseCase().execute();
+      const allJobs = await Container.getGetAllJobsUseCase().execute(filters);
       // BUG 5 fix: deduplicate by id/_id to guard against test data duplicates
-      const unique = Array.from(
+      let unique = Array.from(
         new Map(allJobs.map((j: any) => [j._id || j.id, j])).values()
       ) as Job[];
+
+      if (candidateId) {
+        try {
+          const matched = await Container.getGetMatchingJobsUseCase().execute(candidateId);
+          unique = unique.map(job => {
+            const matchedJob = matched.find((m: any) => (m.id || m._id) === job.id);
+            if (matchedJob) {
+              return {
+                ...job,
+                matchScore: matchedJob.matchScore
+              };
+            }
+            return job;
+          });
+        } catch (matchErr) {
+          console.error('Failed to load matching scores during loadJobs:', matchErr);
+        }
+      }
+
       setJobs(unique);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load jobs');

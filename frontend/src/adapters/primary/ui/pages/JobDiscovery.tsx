@@ -1,5 +1,5 @@
-import { motion } from 'motion/react';
-import { Search, MapPin, Clock, SlidersHorizontal, Briefcase } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Search, MapPin, Clock, SlidersHorizontal, Briefcase, X, Check } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/adapters/primary/ui/components/layout/AppLayout';
@@ -17,13 +17,38 @@ const FILTER_OPTIONS = [
 export default function JobDiscovery() {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const { jobs, loading, error, loadJobs } = useJobs();
+  const { jobs, loading, error, loadJobs, getMatchingJobs } = useJobs();
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Advanced Filters Modal States
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [minSalary, setMinSalary] = useState('');
+  const [expLevel, setExpLevel] = useState('');
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+
   useEffect(() => {
-    loadJobs();
-  }, []);
+    loadJobs(undefined, user?.role === 'candidate' ? user?.id : undefined);
+  }, [user?.id, user?.role]);
+
+  const handleApplyFilters = () => {
+    const filters: any = {};
+    if (minSalary) filters.minSalary = Number(minSalary);
+    if (expLevel) filters.experienceLevel = expLevel;
+    if (selectedSkills.length > 0) filters.skills = selectedSkills;
+    
+    loadJobs(filters, user?.role === 'candidate' ? user?.id : undefined);
+    setIsFilterModalOpen(false);
+  };
+
+  const handleResetFilters = () => {
+    setMinSalary('');
+    setExpLevel('');
+    setSelectedSkills([]);
+    setIsFilterModalOpen(false);
+    
+    loadJobs(undefined, user?.role === 'candidate' ? user?.id : undefined);
+  };
 
   const filtered = jobs.filter(job => {
     const matchesSearch =
@@ -54,7 +79,11 @@ export default function JobDiscovery() {
             Find Your Next Role
           </h1>
           <p className="text-sm md:text-base" style={{ color: 'var(--text-secondary)' }}>
-            Showing <span style={{ color: 'var(--accent-secondary)' }}>{filtered.length} jobs</span> matched to your skills
+            {(!minSalary && !expLevel && selectedSkills.length === 0 && !searchQuery && selectedFilter === 'all') ? (
+              <>Showing <span style={{ color: 'var(--accent-secondary)' }}>{filtered.length} available jobs</span></>
+            ) : (
+              <>Showing <span style={{ color: 'var(--accent-secondary)' }}>{filtered.length} jobs</span> matched to your filters</>
+            )}
           </p>
         </motion.div>
 
@@ -102,7 +131,8 @@ export default function JobDiscovery() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all"
+                onClick={() => setIsFilterModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:bg-neutral-800 active:scale-[0.98]"
                 style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
               >
                 <SlidersHorizontal className="w-4 h-4" />
@@ -196,7 +226,7 @@ export default function JobDiscovery() {
                     <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{job.salary}</span>
                     {job.matchScore !== undefined && (
                       <span className="text-sm" style={{ color: 'var(--accent-secondary)', fontFamily: 'var(--font-mono)' }}>
-                        {job.matchScore}% match
+                        {job.matchScore <= 1 ? Math.round(job.matchScore * 100) : job.matchScore}% match
                       </span>
                     )}
                     <button
@@ -213,6 +243,150 @@ export default function JobDiscovery() {
           </div>
         )}
       </main>
+
+      {/* Advanced Filters Modal */}
+      <AnimatePresence>
+        {isFilterModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFilterModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg p-6 rounded-2xl shadow-2xl overflow-hidden z-10"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-subtle)',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)'
+              }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                  Advanced Filters
+                </h2>
+                <button
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="space-y-6">
+                {/* Salary Range */}
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Minimum Annual Salary (USD)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="200000"
+                      step="10000"
+                      value={minSalary || 0}
+                      onChange={e => setMinSalary(e.target.value === '0' ? '' : e.target.value)}
+                      className="flex-1 accent-emerald-500 h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <span className="text-sm font-mono w-20 text-right" style={{ color: 'var(--accent-secondary)' }}>
+                      {minSalary ? `$${Math.round(Number(minSalary) / 1000)}k` : 'Any'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Experience Level */}
+                <div>
+                  <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
+                    Experience Level
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {['junior', 'mid', 'senior', 'lead'].map(level => {
+                      const isSelected = expLevel.toLowerCase() === level.toLowerCase();
+                      return (
+                        <button
+                          key={level}
+                          onClick={() => setExpLevel(isSelected ? '' : level)}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold capitalize transition-all duration-200"
+                          style={{
+                            background: isSelected ? 'rgba(5, 150, 105, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                            border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                            color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)'
+                          }}
+                        >
+                          {level}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Specific Skills */}
+                <div>
+                  <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
+                    Required Skills
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {['React', 'Node.js', 'TypeScript', 'Python', 'C++', 'SQL', 'MongoDB', 'Docker'].map(skill => {
+                      const isSelected = selectedSkills.includes(skill);
+                      return (
+                        <button
+                          key={skill}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedSkills(prev => prev.filter(s => s !== skill));
+                            } else {
+                              setSelectedSkills(prev => [...prev, skill]);
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5"
+                          style={{
+                            background: isSelected ? 'rgba(5, 150, 105, 0.12)' : 'transparent',
+                            border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                            color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)'
+                          }}
+                        >
+                          {skill}
+                          {isSelected && <Check className="w-3.5 h-3.5" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 mt-8 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <button
+                  onClick={handleResetFilters}
+                  className="px-4 py-2 rounded-xl text-sm transition-all hover:bg-white/5 active:scale-95"
+                  style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  Reset All
+                </button>
+                <button
+                  onClick={handleApplyFilters}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110 active:scale-95"
+                  style={{ background: 'var(--accent-primary)', color: 'white' }}
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }

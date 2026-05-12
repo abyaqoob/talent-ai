@@ -22,7 +22,7 @@ export interface Job {
 
 export interface JobApplication {
   id: string;
-  jobId: string;
+  jobId: string | any; // Can be ID string or populated Job object
   candidateId: string;
   status: 'applied' | 'screening' | 'interviewing' | 'offered' | 'rejected' | 'under_review' | 'shortlisted' | 'hired';
   appliedDate: Date;

@@ -34,7 +34,9 @@ export function Sidebar({ type = 'candidate', isOpen = true }: SidebarProps) {
     { id: 'post-job', icon: PlusCircle, label: 'Post a Job', to: '/recruiter/post-job' },
     { id: 'manage-jobs', icon: Briefcase, label: 'Manage Jobs', to: '/recruiter/jobs' },
     { id: 'candidates', icon: Users, label: 'Candidates', to: '/recruiter/candidates' },
+    { id: 'messages', icon: MessageSquare, label: 'Messages', to: '/messages' },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', to: '/recruiter/analytics' },
+    { id: 'notifications', icon: Bell, label: 'Notifications', to: '/notifications' },
     { id: 'settings', icon: Settings, label: 'Settings', to: '/recruiter/settings' },
   ];
 
@@ -77,9 +79,13 @@ export function Sidebar({ type = 'candidate', isOpen = true }: SidebarProps) {
       {/* User Info — Real data from useAuth */}
       <div className="px-6 pb-6 mb-2">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold"
-            style={{ background: 'linear-gradient(135deg, #047857, #059669)' }}>
-            {initials || <User className="w-5 h-5" />}
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden text-white text-sm font-semibold border border-[var(--border-subtle)]"
+            style={{ background: 'var(--bg-tertiary)' }}>
+            {user?.profilePicture ? (
+              <img src={user.profilePicture} alt={displayName} className="w-full h-full object-cover" />
+            ) : (
+              initials || <User className="w-5 h-5" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>

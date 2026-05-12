@@ -36,6 +36,7 @@ export const router = createBrowserRouter([
   { path: "/cv-upload", element: protect(createElement(CVUpload), 'candidate') },
   { path: "/jobs", element: protect(createElement(JobDiscovery)) },
   { path: "/jobs/:id", element: protect(createElement(JobDetail)) },
+  { path: "/dashboard/job/:id", element: protect(createElement(JobDetail)) },
   { path: "/applications", element: protect(createElement(Applications), 'candidate') },
   { path: "/messages", element: protect(createElement(Messages)) },
   { path: "/notifications", element: protect(createElement(Notifications)) },

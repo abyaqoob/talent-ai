@@ -1,6 +1,11 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import cors from 'cors';
+import http from 'http';
+import path from 'path';
+import fs from 'fs';
+import { Server as SocketIOServer } from 'socket.io';
 import { MongooseUserRepository } from './adapters/secondary/db/MongooseUserRepository';
 import { RegisterUser } from './domain/use-cases/RegisterUser';
 import { UserController } from './adapters/primary/rest/controllers/UserController';
@@ -17,23 +22,74 @@ import { SaveCompanyProfileUseCase } from './domain/use-cases/SaveCompanyProfile
 import { GetCompanyProfileUseCase } from './domain/use-cases/GetCompanyProfileUseCase';
 import { JobRepository } from './adapters/secondary/db/JobRepository';
 import { ApplicationRepository } from './adapters/secondary/db/ApplicationRepository';
+import { MessageRepository } from './adapters/secondary/db/MessageRepository';
 import { JobController } from './adapters/primary/rest/controllers/IJobController';
-import {JobRoutes} from './adapters/primary/rest/routes/JobRoutes'
+import { MessageController } from './adapters/primary/rest/controllers/MessageController';
+import { JobRoutes } from './adapters/primary/rest/routes/JobRoutes';
 import { ApplicationController } from './adapters/primary/rest/controllers/ApplicationController';
 import { ApplicationRoutes } from './adapters/primary/rest/routes/ApplicationRoutes';
+import { MessageRoutes } from './adapters/primary/rest/routes/MessageRoutes';
+import { NotificationRepository } from './adapters/secondary/db/NotificationRepository';
+import { NotificationService } from './domain/services/NotificationService';
+import { NotificationController } from './adapters/primary/rest/controllers/NotificationController';
+import { NotificationRoutes } from './adapters/primary/rest/routes/NotificationRoutes';
 
 dotenv.config();
 
 const mongoUri = process.env.MONGO_URI;
-const port = process.env.PORT;
+const port = process.env.PORT || 5001;
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS']
+  }
+});
 
-import cors from 'cors';
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+io.on('connection', (socket) => {
+  console.log(`🔌 New client connected: ${socket.id}`);
+  
+  socket.on('join', (userId: string) => {
+    if (userId) {
+      socket.join(userId);
+      console.log(`👤 User ${userId} joined their room`);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 Client disconnected: ${socket.id}`);
+  });
+});
+
+app.use(cors({ 
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json());
 
+// Expose uploads directory statically
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
+
+// ✅ DEBUG MIDDLEWARE: Log all requests to find the 403 source
+app.use((req, res, next) => {
+  console.log(`🔍 [${new Date().toISOString()}] ${req.method} ${req.url}`);
+  const oldJson = res.json;
+  res.json = function(data) {
+    console.log(`📤 Response [${res.statusCode}]:`, JSON.stringify(data).substring(0, 100));
+    return oldJson.call(this, data);
+  };
+  next();
+});
 
 // ============ USER SETUP ============
 const userRepository = new MongooseUserRepository();
@@ -67,18 +123,25 @@ const userController = new UserController(
 // ============ JOB & APPLICATION SETUP ✅ ============
 const jobRepository = new JobRepository();
 const applicationRepository = new ApplicationRepository();
-const jobController = new JobController(jobRepository, userRepository, applicationRepository, aiService);
-const applicationController = new ApplicationController(applicationRepository, jobRepository, userRepository);
+const messageRepository = new MessageRepository();
+const notificationRepository = new NotificationRepository();
+const notificationService = new NotificationService(notificationRepository, io);
+const notificationController = new NotificationController(notificationRepository);
+const jobController = new JobController(jobRepository, userRepository, applicationRepository, aiService, notificationService);
+const applicationController = new ApplicationController(applicationRepository, jobRepository, userRepository, notificationService);
+const messageController = new MessageController(messageRepository, io, notificationService);
 
 // ============ ROUTES ============
 app.use('/api/users', createUserRoutes(userController));
 app.use('/api', JobRoutes(jobController));
 app.use('/api', ApplicationRoutes(applicationController));
+app.use('/api', MessageRoutes(messageController));
+app.use('/api', NotificationRoutes(notificationController));
 
 // ============ START SERVER ============
 mongoose.connect(mongoUri!)
   .then(() => {
     console.log('✅ MongoDB connected');
-    app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
+    httpServer.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
   })
   .catch((err) => console.error('❌ DB error :', err));

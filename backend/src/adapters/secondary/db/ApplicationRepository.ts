@@ -43,20 +43,19 @@ export class ApplicationRepository implements IApplicationRepository {
     }
 
     async findCandidateApplicationsWithJobs(candidateId: string): Promise<any[]> {
-        // Simple populate using aggregation or manual lookup if needed, 
-        // but let's use a straightforward approach for now.
-        const apps = await ApplicationModel.find({ candidateId }).sort({ appliedAt: -1 }).lean();
+        const apps = await ApplicationModel.find({ candidateId })
+            .sort({ appliedAt: -1 })
+            .populate({
+                path: 'jobId',
+                populate: { path: 'company' }
+            })
+            .lean();
         
-        const results = await Promise.all(apps.map(async (app) => {
-            const job = await JobModel.findById(app.jobId).lean();
-            return {
-                ...app,
-                id: app._id.toString(),
-                job: job ? { ...job, id: job._id.toString() } : null
-            };
+        return apps.map(app => ({
+            ...app,
+            id: (app as any)._id?.toString() || (app as any).id,
+            job: (app as any).jobId // For backward compatibility if needed
         }));
-
-        return results;
     }
 
     async findJobApplicationsWithCandidates(jobId: string): Promise<any[]> {

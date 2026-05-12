@@ -1,218 +1,268 @@
-import { motion } from 'motion/react';
-import { Send, MessageSquare, User } from 'lucide-react';
-import { AppLayout } from '@/adapters/primary/ui/components/layout/AppLayout';
 import { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
+import { Send, User, Search, Loader2 } from 'lucide-react';
+import { AppLayout } from '@/adapters/primary/ui/components/layout/AppLayout';
+import { Input } from '@/adapters/primary/ui/components/base/input';
+import { Button } from '@/adapters/primary/ui/components/base/button';
 import { useAuth } from '@/presentation/hooks/useAuth';
 import { apiClient } from '@/infrastructure/api/apiClient';
+import { io, Socket } from 'socket.io-client';
 
-interface MessageItem {
-  _id?: string;
-  id?: string;
+interface Message {
+  _id: string;
   senderId: string;
-  receiverId: string;
+  recipientId: string;
+  senderName?: string;
+  recipientName?: string;
   content: string;
-  subject?: string;
-  createdAt?: string;
-  read?: boolean;
+  createdAt: string;
 }
-
-interface Conversation {
-  userId: string;
-  name: string;
-  email: string;
-  lastMessage: string;
-  lastTime: string;
-  unread: number;
-}
-
-function getIdFromMsg(msg: MessageItem) { return msg._id || msg.id || ''; }
 
 export default function Messages() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<MessageItem[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<{ id: string, name: string, lastMessage: string, unread: boolean, date: string }[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
-  const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (user?.id) loadMessages();
-  }, [user?.id]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, selectedConvId]);
-
-  const loadMessages = async () => {
-    setLoading(true);
-    try {
-      const data = await apiClient.get<any[]>('/messages');
-      const msgs: MessageItem[] = Array.isArray(data) ? data : [];
-      setMessages(msgs);
-      buildConversations(msgs);
-    } catch {
-      setMessages([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const buildConversations = (msgs: MessageItem[]) => {
-    if (!user?.id) return;
-    const convMap = new Map<string, Conversation>();
-    msgs.forEach(msg => {
-      const otherId = msg.senderId === user.id ? msg.receiverId : msg.senderId;
-      if (!convMap.has(otherId)) {
-        convMap.set(otherId, {
-          userId: otherId,
-          name: otherId.slice(0, 8) + '…',
-          email: '',
-          lastMessage: msg.content,
-          lastTime: msg.createdAt || '',
-          unread: (!msg.read && msg.senderId !== user.id) ? 1 : 0,
-        });
-      } else {
-        const conv = convMap.get(otherId)!;
-        if (!msg.read && msg.senderId !== user.id) conv.unread++;
-        conv.lastMessage = msg.content;
-        conv.lastTime = msg.createdAt || '';
+    if (!user) return;
+    const fetchMessages = async () => {
+      try {
+        const res = await apiClient.get<Message[]>('/messages');
+        const allMessages = res.data || res;
+        setMessages(allMessages);
+      } catch (err) {
+        console.error('Failed to fetch messages:', err);
+      } finally {
+        setLoading(false);
       }
+    };
+    
+    fetchMessages();
+
+    // Setup Socket.io
+    socketRef.current = io('http://localhost:5001');
+    socketRef.current.on('connect', () => {
+      console.log('Connected to socket server');
+      socketRef.current?.emit('join', user.id);
     });
-    setConversations(Array.from(convMap.values()));
-  };
 
-  const getConvMessages = () => {
-    if (!selectedConvId || !user?.id) return [];
-    return messages.filter(m =>
-      (m.senderId === user.id && m.receiverId === selectedConvId) ||
-      (m.senderId === selectedConvId && m.receiverId === user.id)
-    );
-  };
-
-  const handleSend = async () => {
-    if (!newMessage.trim() || !selectedConvId || sending) return;
-    setSending(true);
-    try {
-      const sent = await apiClient.post<any>('/messages', {
-        recipientId: selectedConvId,
-        content: newMessage.trim(),
-        subject: 'Message',
+    socketRef.current.on('receive_message', (msg: Message) => {
+      setMessages(prev => {
+        // Prevent duplicate if we just sent it and it already propagated through REST
+        if (prev.find(m => m._id === msg._id)) return prev;
+        return [...prev, msg];
       });
-      const msgItem: MessageItem = {
-        ...sent,
-        senderId: user?.id || '',
-        receiverId: selectedConvId,
-        content: newMessage.trim(),
-        createdAt: new Date().toISOString(),
-        read: true,
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, [user]);
+
+  // Derived conversations list based on messages
+  useEffect(() => {
+    if (!user) return;
+    const grouped = new Map<string, Message[]>();
+    messages.forEach((msg: Message) => {
+      const otherId = msg.senderId === user.id ? msg.recipientId : msg.senderId;
+      if (!grouped.has(otherId)) grouped.set(otherId, []);
+      grouped.get(otherId)!.push(msg);
+    });
+    
+    const convos = Array.from(grouped.entries()).map(([contactId, msgs]) => {
+      const sorted = msgs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const lastMsg = sorted[sorted.length - 1];
+      
+      let contactName = `Contact ${contactId.substring(contactId.length - 4)}`;
+      let contactProfilePicture = '';
+      const msgWithName = msgs.find(m => 
+        (m.senderId === contactId && m.senderName) || 
+        (m.recipientId === contactId && m.recipientName)
+      );
+
+      if (msgWithName) {
+        if (msgWithName.senderId === contactId) {
+          contactName = msgWithName.senderName!;
+          contactProfilePicture = (msgWithName as any).senderProfilePicture || '';
+        } else if (msgWithName.recipientId === contactId) {
+          contactName = msgWithName.recipientName!;
+          contactProfilePicture = (msgWithName as any).recipientProfilePicture || '';
+        }
+      }
+
+      return {
+        id: contactId,
+        name: contactName, 
+        profilePicture: contactProfilePicture,
+        lastMessage: lastMsg.content,
+        unread: false,
+        date: new Date(lastMsg.createdAt).toLocaleDateString()
       };
-      setMessages(prev => [...prev, msgItem]);
+    });
+    convos.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setConversations(convos);
+  }, [messages, user]);
+
+  // Scroll to bottom when active messages update
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, activeChatId]);
+
+  // Derived state for the active chat
+  const activeChatMessages = messages
+    .filter(m => (m.senderId === user?.id && m.recipientId === activeChatId) || (m.senderId === activeChatId && m.recipientId === user?.id))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !activeChatId || !user) return;
+
+    try {
+      const res = await apiClient.post<Message>('/messages', {
+        recipientId: activeChatId,
+        content: newMessage.trim()
+      });
+      const sentMsg = res.data || res;
       setNewMessage('');
-    } catch (e: any) {
-      alert(e?.message || 'Failed to send');
-    } finally {
-      setSending(false);
+      
+      // Update state locally (the socket event to ourselves will also fire, so we handle dupes in receive_message)
+      setMessages(prev => [...prev.filter(m => m._id !== sentMsg._id), sentMsg]);
+    } catch (err) {
+      console.error('Failed to send message:', err);
     }
   };
-
-  const convMessages = getConvMessages();
 
   return (
-    <AppLayout>
-      <div className="max-w-6xl mx-auto flex gap-0 rounded-2xl overflow-hidden" style={{ height: 'calc(100vh - 160px)', border: '1px solid var(--border-subtle)' }}>
-        {/* Conversation List */}
-        <div className="w-80 shrink-0 flex flex-col" style={{ background: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)' }}>
-          <div className="p-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Messages</h2>
-          </div>
+    <AppLayout sidebarType={user?.role as 'candidate' | 'recruiter' | 'admin'}>
+      <div className="max-w-7xl mx-auto h-[calc(100vh-120px)] flex flex-col">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
+          <h1 className="text-3xl" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Messages</h1>
+        </motion.div>
 
-          {loading ? (
-            <div className="p-4 space-y-3">
-              {[1, 2, 3].map(i => <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />)}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 min-h-0">
+          {/* Left Sidebar - Chat List */}
+          <div className="md:col-span-1 rounded-2xl flex flex-col overflow-hidden" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <div className="p-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                <Input placeholder="Search messages..." className="pl-9 w-full border-transparent" style={{ background: 'var(--bg-tertiary)' }} />
+              </div>
             </div>
-          ) : conversations.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <MessageSquare className="w-12 h-12 mb-3" style={{ color: 'var(--text-muted)' }} />
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No messages yet</p>
-            </div>
-          ) : (
+            
             <div className="flex-1 overflow-y-auto">
-              {conversations.map(conv => (
-                <button key={conv.userId} onClick={() => setSelectedConvId(conv.userId)}
-                  className="w-full p-4 text-left transition-all"
-                  style={{ background: selectedConvId === conv.userId ? 'var(--bg-tertiary)' : 'transparent', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#047857,#059669)' }}>
-                      <User className="w-5 h-5 text-white" />
+              {loading ? (
+                <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
+              ) : conversations.length === 0 ? (
+                <div className="text-center p-8 text-sm" style={{ color: 'var(--text-muted)' }}>No messages yet</div>
+              ) : (
+                conversations.map(chat => (
+                  <button
+                    key={chat.id}
+                    onClick={() => setActiveChatId(chat.id)}
+                    className="w-full text-left p-4 transition-colors flex items-start gap-3"
+                    style={{ 
+                      background: activeChatId === chat.id ? 'var(--bg-tertiary)' : 'transparent',
+                      borderLeft: activeChatId === chat.id ? '3px solid var(--accent-primary)' : '3px solid transparent',
+                      borderBottom: '1px solid var(--border-subtle)'
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden text-white font-medium border border-[var(--border-subtle)]" style={{ background: 'var(--bg-primary)' }}>
+                      {chat.profilePicture ? (
+                        <img src={chat.profilePicture} alt={chat.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{conv.name}</p>
-                        {conv.unread > 0 && (
-                          <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs text-white shrink-0"
-                            style={{ background: 'var(--accent-primary)' }}>{conv.unread}</span>
-                        )}
+                      <div className="flex justify-between items-baseline mb-1">
+                        <span className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>{chat.name}</span>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{chat.date}</span>
                       </div>
-                      <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{conv.lastMessage}</p>
+                      <p className="text-sm truncate" style={{ color: chat.unread ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: chat.unread ? 600 : 400 }}>
+                        {chat.lastMessage}
+                      </p>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Message Thread */}
-        <div className="flex-1 flex flex-col" style={{ background: 'var(--bg-primary)' }}>
-          {!selectedConvId ? (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <MessageSquare className="w-16 h-16 mb-4" style={{ color: 'var(--text-muted)' }} />
-              <p style={{ color: 'var(--text-muted)' }}>Select a conversation to start messaging</p>
-            </div>
-          ) : (
-            <>
-              <div className="p-4" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-secondary)' }}>
-                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Conversation with {selectedConvId.slice(0, 12)}…</p>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {convMessages.map(msg => {
-                  const isMe = msg.senderId === user?.id;
-                  return (
-                    <div key={getIdFromMsg(msg)} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                      <div className="max-w-xs px-4 py-2.5 rounded-2xl text-sm"
-                        style={{
-                          background: isMe ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-                          color: isMe ? 'white' : 'var(--text-primary)',
-                          borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                        }}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  );
-                })}
-                {convMessages.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No messages yet. Start the conversation!</p>
+          {/* Right Window - Chat Area */}
+          <div className="md:col-span-2 rounded-2xl flex flex-col overflow-hidden" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            {activeChatId ? (
+              <>
+                {/* Chat Header */}
+                <div className="p-4 flex items-center gap-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-tertiary)' }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden text-white border border-[var(--border-subtle)]" style={{ background: 'var(--bg-primary)' }}>
+                    {conversations.find(c => c.id === activeChatId)?.profilePicture ? (
+                      <img src={conversations.find(c => c.id === activeChatId)?.profilePicture} alt="User" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                    )}
                   </div>
-                )}
-                <div ref={bottomRef} />
+                  <div>
+                    <h3 className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {conversations.find(c => c.id === activeChatId)?.name || `Contact ${activeChatId.substring(activeChatId.length - 4)}`}
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Messages Container */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {activeChatMessages.map(msg => {
+                    const isMine = msg.senderId === user?.id;
+                    return (
+                      <div key={msg._id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                        <div 
+                          className={`max-w-[70%] p-3 rounded-2xl text-sm ${isMine ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
+                          style={{
+                            background: isMine ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+                            color: isMine ? 'white' : 'var(--text-primary)',
+                            border: isMine ? 'none' : '1px solid var(--border-subtle)'
+                          }}
+                        >
+                          <p>{msg.content}</p>
+                          <span className={`text-[10px] mt-1 block opacity-70`} style={{ textAlign: isMine ? 'right' : 'left' }}>
+                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Input Area */}
+                <div className="p-4" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-primary)' }}>
+                  <form onSubmit={handleSendMessage} className="flex gap-2">
+                    <Input 
+                      value={newMessage}
+                      onChange={e => setNewMessage(e.target.value)}
+                      placeholder="Type a message..." 
+                      className="flex-1"
+                    />
+                    <Button type="submit" variant="gradient" disabled={!newMessage.trim()}>
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </form>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'var(--bg-tertiary)' }}>
+                  <User className="w-8 h-8 opacity-50" />
+                </div>
+                <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Your Messages</h3>
+                <p className="text-sm max-w-sm">Select a conversation from the sidebar to start chatting.</p>
               </div>
-              <div className="p-4 flex gap-3" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-secondary)' }}>
-                <input value={newMessage} onChange={e => setNewMessage(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  placeholder="Type a message…" className="flex-1 px-4 py-2.5 rounded-xl text-sm focus:outline-none"
-                  style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
-                <button onClick={handleSend} disabled={sending || !newMessage.trim()}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center disabled:opacity-40"
-                  style={{ background: 'var(--accent-primary)', color: 'white' }}>
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </AppLayout>

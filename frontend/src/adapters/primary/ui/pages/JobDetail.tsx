@@ -117,11 +117,17 @@ export default function JobDetail() {
           <div className="lg:col-span-2">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
               <div className="flex items-start gap-4 mb-6">
-                <div className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(5, 150, 105, 0.1)', border: '1px solid rgba(5, 150, 105, 0.2)' }}>
-                  <Briefcase className="w-8 h-8" style={{ color: '#047857' }} />
+                <div className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-[var(--border-subtle)]" style={{ background: 'var(--bg-tertiary)' }}>
+                  {jobData.recruiterProfilePicture ? (
+                    <img src={jobData.recruiterProfilePicture} alt="Company Logo" className="w-full h-full object-cover" />
+                  ) : (
+                    <Briefcase className="w-8 h-8" style={{ color: '#047857' }} />
+                  )}
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-lg mb-1" style={{ color: 'var(--text-primary)' }}>{jobData.company || 'Company Name'}</h2>
+                  <h2 className="text-lg mb-1" style={{ color: 'var(--text-primary)' }}>
+                    {jobData.company?.companyName || (typeof jobData.company === 'string' ? jobData.company : 'Company Name')}
+                  </h2>
                   <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Technology · {jobData.location}</p>
                 </div>
               </div>
@@ -190,9 +196,9 @@ export default function JobDetail() {
                 {activeTab === 'company' && (
                   <div>
                     <h3 className="text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
-                      About {jobData.company?.companyName || jobData.company || 'the Company'}
+                      About {jobData.company?.companyName || (typeof jobData.company === 'string' ? jobData.company : 'the Company')}
                     </h3>
-                    {jobData.company ? (
+                    {jobData.company && typeof jobData.company === 'object' ? (
                       <div className="space-y-4">
                         {jobData.company.companyName && (
                           <div className="flex justify-between py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -242,13 +248,34 @@ export default function JobDetail() {
             <div className="p-6 rounded-2xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex flex-col items-center mb-6">
                 <div className="relative w-36 h-36 flex items-center justify-center mb-3" style={{ fontFamily: 'var(--font-mono)' }}>
-                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(5, 150, 105, 0.15)" strokeWidth="6" />
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--accent-secondary)" strokeWidth="6" strokeDasharray="230 21" strokeLinecap="round" transform="rotate(-90 50 50)" />
-                  </svg>
-                  <div className="relative text-center">
-                    <div className="text-5xl mb-1" style={{ color: 'var(--accent-secondary)' }}>{jobData.matchScore || 85}%</div>
-                  </div>
+                  {(() => {
+                    const score = (jobData.matchScore !== undefined && jobData.matchScore !== null) 
+                      ? (jobData.matchScore <= 1 ? Math.round(jobData.matchScore * 100) : jobData.matchScore) 
+                      : 0;
+                    const radius = 40;
+                    const circumference = 2 * Math.PI * radius;
+                    const dashArray = `${(score / 100) * circumference} ${circumference}`;
+                    
+                    return (
+                      <>
+                        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(5, 150, 105, 0.15)" strokeWidth="6" />
+                          <circle 
+                            cx="50" cy="50" r={radius} 
+                            fill="none" 
+                            stroke="var(--accent-secondary)" 
+                            strokeWidth="6" 
+                            strokeDasharray={dashArray} 
+                            strokeLinecap="round" 
+                            transform="rotate(-90 50 50)" 
+                          />
+                        </svg>
+                        <div className="relative text-center">
+                          <div className="text-5xl mb-1" style={{ color: 'var(--accent-secondary)' }}>{score}%</div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Match Score</p>
               </div>

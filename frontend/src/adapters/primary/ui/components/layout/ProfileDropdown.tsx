@@ -47,11 +47,15 @@ export function ProfileDropdown() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:ring-2 hover:ring-offset-2 hover:ring-emerald-500 text-white text-sm font-semibold"
-        style={{ background: '#047857' }}
+        className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:ring-2 hover:ring-offset-2 hover:ring-emerald-500 overflow-hidden text-white text-sm font-semibold border border-[var(--border-subtle)]"
+        style={{ background: 'var(--bg-tertiary)' }}
         title={displayName}
       >
-        {initials || <User className="w-5 h-5" />}
+        {user?.profilePicture ? (
+          <img src={user.profilePicture} alt={displayName} className="w-full h-full object-cover" />
+        ) : (
+          initials || <User className="w-5 h-5" />
+        )}
       </button>
 
       <AnimatePresence>
@@ -67,9 +71,13 @@ export function ProfileDropdown() {
             {/* User Info */}
             <div className="p-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-white font-semibold"
-                  style={{ background: '#047857' }}>
-                  {initials || <User className="w-6 h-6" />}
+                <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 overflow-hidden text-white font-semibold border border-[var(--border-subtle)]"
+                  style={{ background: 'var(--bg-tertiary)' }}>
+                  {user?.profilePicture ? (
+                    <img src={user.profilePicture} alt={displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    initials || <User className="w-6 h-6" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm mb-0.5 truncate" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{displayName}</div>

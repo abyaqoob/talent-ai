@@ -16,6 +16,7 @@ interface LoginOutput {
     name: string;
     email: string;
     role: string;
+    profilePicture?: string;
   };
 }
 
@@ -30,6 +31,7 @@ export class LoginUser {
 
     // ✅ BUG FIX: Role separation — if role provided, it must match
     if (input.role && user.role !== input.role) {
+      console.log(`❌ Role mismatch: Expected ${input.role}, found ${user.role} for user ${user.email}`);
       throw new AppError(
         'Access denied. Invalid role for this account.',
         'ROLE_MISMATCH',
@@ -50,7 +52,7 @@ export class LoginUser {
 
     return {
       token,
-      user: { id: user.id!, name: user.name, email: user.email, role: user.role }
+      user: { id: user.id!, name: user.name, email: user.email, role: user.role, profilePicture: user.profilePicture }
     };
   }
 }

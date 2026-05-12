@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import fs from 'fs';
+import path from 'path';
 import { RegisterUser } from '../../../../domain/use-cases/RegisterUser';
 import { AppError } from '../../../../shared/errors/AppError';
 import { LoginUser } from '@/domain/use-cases/LoginUser';
@@ -36,6 +38,11 @@ export class UserController {
       // Validate role
       if (!role || !['candidate', 'recruiter'].includes(role)) {
         return res.status(400).json({ error: 'Role must be either candidate or recruiter' });
+      }
+
+      // Validate password length
+      if (!password || password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long' });
       }
 
       const user = await this.registerUser.execute({ name, email, password, role });
@@ -281,6 +288,65 @@ export class UserController {
       res.json({ success: true, message: 'Password changed successfully' });
     } catch (err: any) {
       console.error('changePassword error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  getNotificationPrefs = async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const userDoc = await UserModel.findOne({ id: userId }).select('notificationPrefs').lean();
+      const prefs = userDoc?.notificationPrefs || { jobMatches: true, applicationUpdates: true, messages: true };
+      res.json(prefs);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  saveNotificationPrefs = async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { jobMatches, applicationUpdates, messages } = req.body;
+      await UserModel.findOneAndUpdate(
+        { id: userId },
+        { $set: { notificationPrefs: { jobMatches, applicationUpdates, messages } } }
+      );
+      res.json({ success: true, message: 'Notification preferences saved' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  uploadProfilePicture = async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      // Generate clean filename
+      const ext = path.extname(req.file.originalname) || '.png';
+      const filename = `profile-${userId}-${Date.now()}${ext}`;
+      const destDir = path.join(__dirname, '../../../../../uploads');
+      
+      // Ensure folder exists
+      if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+      }
+
+      const filePath = path.join(destDir, filename);
+      fs.writeFileSync(filePath, req.file.buffer);
+
+      const url = `http://localhost:5001/uploads/${filename}`;
+      await UserModel.findOneAndUpdate({ id: userId }, { $set: { profilePicture: url } });
+
+      res.json({ success: true, profilePicture: url });
+    } catch (err: any) {
+      console.error('uploadProfilePicture error:', err);
       res.status(500).json({ error: err.message });
     }
   };

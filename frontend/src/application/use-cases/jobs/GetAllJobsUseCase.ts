@@ -4,7 +4,7 @@ import { Job } from '../../../domain/entities/Job';
 export class GetAllJobsUseCase {
   constructor(private jobRepository: IJobRepository) {}
 
-  async execute(): Promise<Job[]> {
-    return await this.jobRepository.findAll();
+  async execute(filters?: { minSalary?: number; skills?: string[]; experienceLevel?: string; type?: string }): Promise<Job[]> {
+    return await this.jobRepository.findAll(filters);
   }
 }

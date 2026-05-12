@@ -7,6 +7,7 @@ import { UpdateApplicationStatus } from '../../../../domain/use-cases/UpdateAppl
 import { ApplicationRepository } from '../../../secondary/db/ApplicationRepository';
 import { JobRepository } from '../../../secondary/db/JobRepository';
 import { MongooseUserRepository } from '../../../secondary/db/MongooseUserRepository';
+import { NotificationService } from '../../../../domain/services/NotificationService';
 
 interface AuthRequest extends Request {
     user?: {
@@ -20,7 +21,8 @@ export class ApplicationController {
     constructor(
         private applicationRepo: ApplicationRepository,
         private jobRepo: JobRepository,
-        private userRepo: MongooseUserRepository
+        private userRepo: MongooseUserRepository,
+        private notificationService?: NotificationService
     ) {}
 
     // GET /api/applications/me
@@ -64,6 +66,22 @@ export class ApplicationController {
             const useCase = new UpdateApplicationStatus(this.applicationRepo, this.jobRepo);
             const updated = await useCase.execute(applicationId, recruiterId, status);
             res.json(updated);
+
+            // 🔔 Notify candidate about status change
+            if (this.notificationService && updated.candidateId) {
+                const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                try {
+                    await this.notificationService.notify({
+                        recipientId: updated.candidateId,
+                        type: 'APPLICATION_STATUS',
+                        title: `Application ${statusLabel}`,
+                        message: `Your application has been ${status.toLowerCase()}. Check your applications for details.`,
+                        link: '/applications',
+                    });
+                } catch (notifErr) {
+                    console.error('⚠️ Non-critical: failed to send status notification', notifErr);
+                }
+            }
         } catch (error: any) {
             res.status(error.statusCode || 500).json({ error: error.message });
         }

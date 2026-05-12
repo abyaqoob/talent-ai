@@ -70,9 +70,19 @@ const JobSchema = new Schema<IJobDocument>(
     },
     {
         timestamps: true,
-        collection: 'jobs'
+        collection: 'jobs',
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
     }
 );
+
+// Virtual for company details
+JobSchema.virtual('company', {
+    ref: 'CompanyProfile',
+    localField: 'recruiterId',
+    foreignField: 'userId',
+    justOne: true
+});
 
 JobSchema.index({ recruiterId: 1, createdAt: -1 });
 JobSchema.index({ workMode: 1, jobType: 1 });

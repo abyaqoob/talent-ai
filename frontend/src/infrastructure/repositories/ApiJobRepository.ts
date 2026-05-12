@@ -48,10 +48,10 @@ export function mapBackendJobToFrontend(raw: any): Job {
 
   return {
     id: raw._id || raw.id || '',
-    title: raw.title || '',
-    company: raw.company || raw.companyName || '',
+    title: raw.title || 'Untitled Role',
+    company: (typeof raw.company === 'object' ? (raw.company.companyName || raw.company.name || '') : (raw.company || raw.companyName || '')) || 'Confidential Company',
     icon: Briefcase,
-    location: raw.location || '',
+    location: raw.location || 'Remote',
     type: typeMap[rawType] || 'Full-Time',
     experience: expMap[rawExp] || 'Mid',
     salary,
@@ -68,8 +68,21 @@ export function mapBackendJobToFrontend(raw: any): Job {
 }
 
 export class ApiJobRepository implements IJobRepository {
-  async findAll(): Promise<Job[]> {
-    const data = await apiClient.get<any>('/jobs');
+  async findAll(filters?: { minSalary?: number; skills?: string[]; experienceLevel?: string; type?: string }): Promise<Job[]> {
+    let url = '/jobs';
+    if (filters) {
+      const params = new URLSearchParams();
+      if (filters.minSalary !== undefined) params.append('minSalary', String(filters.minSalary));
+      if (filters.skills && filters.skills.length > 0) params.append('skills', filters.skills.join(','));
+      if (filters.experienceLevel) params.append('experienceLevel', filters.experienceLevel);
+      if (filters.type) params.append('type', filters.type);
+      
+      const queryStr = params.toString();
+      if (queryStr) {
+        url += `?${queryStr}`;
+      }
+    }
+    const data = await apiClient.get<any>(url);
     const arr = Array.isArray(data) ? data : data?.jobs || [];
     return arr.map(mapBackendJobToFrontend);
   }
@@ -97,7 +110,11 @@ export class ApiJobRepository implements IJobRepository {
     try {
       const data = await apiClient.get<any>('/jobs/recommended');
       const arr = Array.isArray(data) ? data : data?.jobs || [];
-      return arr.map(mapBackendJobToFrontend);
+      return arr.map((item: any) => {
+        const jobRaw = item.job || item;
+        const j = mapBackendJobToFrontend(jobRaw);
+        return { ...j, matchScore: item.matchScore ?? j.matchScore };
+      });
     } catch {
       return this.findAll();
     }

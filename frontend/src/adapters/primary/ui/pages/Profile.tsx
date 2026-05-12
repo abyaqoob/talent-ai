@@ -56,9 +56,13 @@ export default function Profile() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }} className="mb-8 flex items-start justify-between">
           <div className="flex items-start gap-6">
-            <div className="w-24 h-24 rounded-full flex items-center justify-center text-2xl shrink-0"
-              style={{ background: 'linear-gradient(135deg,#047857,#059669)', boxShadow: '0 4px 12px rgba(5,150,105,0.25)' }}>
-              <span className="text-white font-semibold">{initials}</span>
+            <div className="w-24 h-24 rounded-full flex items-center justify-center text-2xl shrink-0 overflow-hidden border border-[var(--border-subtle)]"
+              style={{ background: 'var(--bg-tertiary)', boxShadow: '0 4px 12px rgba(5,150,105,0.15)' }}>
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-[var(--text-primary)] font-semibold">{initials}</span>
+              )}
             </div>
             <div className="flex-1 pt-2">
               <h1 className="text-4xl mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{displayName}</h1>

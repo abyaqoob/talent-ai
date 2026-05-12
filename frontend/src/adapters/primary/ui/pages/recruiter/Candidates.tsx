@@ -153,9 +153,13 @@ export default function Candidates() {
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     {/* Candidate Info */}
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="w-14 h-14 rounded-full flex items-center justify-center shrink-0 text-white font-semibold"
-                        style={{ background: 'linear-gradient(135deg,#047857,#059669)' }}>
-                        {initials || <User className="w-6 h-6" />}
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center shrink-0 overflow-hidden text-white font-semibold border border-[var(--border-subtle)]"
+                        style={{ background: 'var(--bg-tertiary)' }}>
+                        {candidate.profilePicture ? (
+                          <img src={candidate.profilePicture} alt={candidate.name} className="w-full h-full object-cover" />
+                        ) : (
+                          initials || <User className="w-6 h-6" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">

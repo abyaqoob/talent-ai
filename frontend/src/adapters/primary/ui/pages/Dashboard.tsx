@@ -162,7 +162,7 @@ export default function Dashboard() {
                           {job.matchScore !== undefined && (
                             <div className="px-3 py-1 rounded-full text-sm shrink-0"
                               style={{ background: 'var(--gradient-radial-subtle)', color: 'var(--accent-secondary)', fontFamily: 'var(--font-mono)', border: '1px solid var(--border-accent)' }}>
-                              {job.matchScore}% Match
+                              {job.matchScore <= 1 ? Math.round(job.matchScore * 100) : job.matchScore}% Match
                             </div>
                           )}
                         </div>
@@ -211,7 +211,7 @@ export default function Dashboard() {
                   <div key={app.id} className="flex items-center justify-between">
                     <div>
                       <p className="text-sm truncate max-w-[160px]" style={{ color: 'var(--text-primary)' }}>
-                        {app.jobId.slice(0, 16)}…
+                        {typeof app.jobId === 'object' ? (app.jobId.title || 'Unknown Position') : (app.jobId.slice(0, 16) + '…')}
                       </p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                         {new Date(app.appliedDate).toLocaleDateString()}

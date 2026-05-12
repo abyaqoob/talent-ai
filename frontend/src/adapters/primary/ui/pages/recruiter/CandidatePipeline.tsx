@@ -118,9 +118,13 @@ export default function CandidatePipeline() {
                           whileHover={{ scale: 1.02 }} className="p-4 rounded-xl"
                           style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)' }}>
                           <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold"
-                              style={{ background: 'linear-gradient(135deg,#047857,#059669)' }}>
-                              {initials}
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden text-white text-sm font-semibold border border-[var(--border-subtle)]"
+                              style={{ background: 'var(--bg-secondary)' }}>
+                              {c?.profilePicture ? (
+                                <img src={c.profilePicture} alt={c.name} className="w-full h-full object-cover" />
+                              ) : (
+                                initials
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{c?.name || 'Unknown'}</p>

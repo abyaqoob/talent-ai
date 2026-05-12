@@ -7,4 +7,5 @@ export interface User {
   createdAt?: Date;
   phone?:string | null;
   location?:string | null;
+  profilePicture?: string;
 }

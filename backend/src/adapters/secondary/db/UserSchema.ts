@@ -9,6 +9,12 @@ const UserSchema = new mongoose.Schema({
   phone:        { type: String }, 
   location:     { type: String }, 
   savedJobs:    { type: [String], default: [] }, // ✅ Added for Bug 3
+  notificationPrefs: {
+    jobMatches:          { type: Boolean, default: true },
+    applicationUpdates:  { type: Boolean, default: true },
+    messages:            { type: Boolean, default: true },
+  },
+  profilePicture: { type: String, default: '' },
   createdAt:    { type: Date,    default: Date.now },
 });
 
