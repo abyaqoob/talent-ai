@@ -43,7 +43,8 @@ const port = process.env.PORT || 5001;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://talent-ai-plum.vercel.app'
+  'https://talent-ai-plum.vercel.app',
+  'https://talent-kkzqav3ho-abdullah-yaqoobs-projects-b2faceff.vercel.app'
 ];
 
 const app = express();
