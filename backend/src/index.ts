@@ -39,21 +39,26 @@ dotenv.config();
 const mongoUri = process.env.MONGO_URI;
 const port = process.env.PORT || 5001;
 
-// Define allowed origins for both Local and Production
+// Define base allowed origins
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://talent-ai-plum.vercel.app',
-  'https://talent-kkzqav3ho-abdullah-yaqoobs-projects-b2faceff.vercel.app'
+  'https://talent-ai-plum.vercel.app'
 ];
 
 const app = express();
 const httpServer = http.createServer(app);
 
-// Use allowedOrigins in Socket.io
+// Dynamic Origin Validation for Socket.io
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS']
   }
@@ -74,9 +79,21 @@ io.on('connection', (socket) => {
   });
 });
 
-// Use allowedOrigins in Express CORS
+// Dynamic CORS configuration for Express
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+
+    // Allow if in list OR if it's a Vercel subdomain
+    const isAllowed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log(`🚫 CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -91,7 +108,7 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
-// ✅ DEBUG MIDDLEWARE: Log all requests to find the 403/502 source
+// ✅ DEBUG MIDDLEWARE: Trace production requests
 app.use((req, res, next) => {
   console.log(`🔍 [${new Date().toISOString()}] ${req.method} ${req.url}`);
   const oldJson = res.json;
@@ -151,7 +168,7 @@ app.use('/api', NotificationRoutes(notificationController));
 
 // ============ START SERVER ============
 if (!mongoUri) {
-  console.error('❌ MONGO_URI is not defined in environment variables');
+  console.error('❌ MONGO_URI is not defined');
   process.exit(1);
 }
 
@@ -160,7 +177,6 @@ mongoose.connect(mongoUri)
     console.log('✅ MongoDB connected');
     httpServer.listen(port, () => {
       console.log(`🚀 Server running on port ${port}`);
-      console.log(`📡 CORS allowed for: ${allowedOrigins.join(', ')}`);
     });
   })
   .catch((err) => console.error('❌ DB connection error:', err));
