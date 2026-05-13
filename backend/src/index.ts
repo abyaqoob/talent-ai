@@ -39,7 +39,7 @@ dotenv.config();
 const mongoUri = process.env.MONGO_URI;
 const port = process.env.PORT || 5001;
 
-// Define base allowed origins
+// Define base allowed origins for local and production
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
@@ -49,7 +49,7 @@ const allowedOrigins = [
 const app = express();
 const httpServer = http.createServer(app);
 
-// Dynamic Origin Validation for Socket.io
+// Dynamic Origin Validation for Socket.io to support Vercel Previews
 const io = new SocketIOServer(httpServer, {
   cors: {
     origin: (origin, callback) => {
@@ -84,7 +84,7 @@ app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
 
-    // Allow if in list OR if it's a Vercel subdomain
+    // Check if origin is in allowed list OR is any Vercel subdomain
     const isAllowed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
 
     if (isAllowed) {
@@ -108,7 +108,7 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
-// ✅ DEBUG MIDDLEWARE: Trace production requests
+// Debug middleware for production tracking
 app.use((req, res, next) => {
   console.log(`🔍 [${new Date().toISOString()}] ${req.method} ${req.url}`);
   const oldJson = res.json;
@@ -168,7 +168,7 @@ app.use('/api', NotificationRoutes(notificationController));
 
 // ============ START SERVER ============
 if (!mongoUri) {
-  console.error('❌ MONGO_URI is not defined');
+  console.error('❌ MONGO_URI is not defined in environment variables');
   process.exit(1);
 }
 
