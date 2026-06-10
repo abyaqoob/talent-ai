@@ -64,7 +64,7 @@ async save(user: User): Promise<User> {
   }
 
   async update(id: string, data: Partial<User>): Promise<User | null> {
-  const updatedDoc = await UserModel.findOneAndUpdate({ id }, { $set: data }, { new: true });
+  const updatedDoc = await UserModel.findOneAndUpdate({ id }, { $set: data }, { returnDocument: 'after' });
   if (!updatedDoc) return null;
 
   return {
@@ -133,7 +133,7 @@ async delete(id: string): Promise<boolean> {
             },
             { 
                 upsert: true, 
-                new: true,
+                returnDocument: 'after',
                 setDefaultsOnInsert: true 
             }
         );
@@ -147,7 +147,7 @@ async delete(id: string): Promise<boolean> {
         await CompanyProfileModel.findOneAndUpdate(
             { userId },
             { $set: { ...data, updatedAt: new Date() } },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
+            { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         );
     }
 

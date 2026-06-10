@@ -58,7 +58,7 @@ export class JobRepository implements IJobRepository {
     }
 
     async update(id: string, data: Partial<IJob>): Promise<IJob | null> {
-        const doc = await JobModel.findByIdAndUpdate(id, data, { new: true }).populate('company');
+        const doc = await JobModel.findByIdAndUpdate(id, data, { returnDocument: 'after' }).populate('company');
         return doc ? this.toJob(doc) : null;
     }
 

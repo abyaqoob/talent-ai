@@ -38,7 +38,7 @@ export class ApplicationRepository implements IApplicationRepository {
     }
 
     async updateStatus(id: string, status: ApplicationStatus): Promise<IApplication | null> {
-        const doc = await ApplicationModel.findByIdAndUpdate(id, { status }, { new: true });
+        const doc = await ApplicationModel.findByIdAndUpdate(id, { status }, { returnDocument: 'after' });
         return doc ? this.toApplication(doc) : null;
     }
 
