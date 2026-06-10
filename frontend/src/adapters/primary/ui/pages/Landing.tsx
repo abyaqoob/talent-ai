@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Upload, Brain, Briefcase, CheckCircle, Users, TrendingUp, Shield, ArrowRight, X, Lock } from 'lucide-react';
+import { Sparkles, Upload, Brain, Briefcase, CheckCircle, Users, TrendingUp, Shield, ArrowRight, X, Lock, Menu } from 'lucide-react';
 import { ThemeToggle } from '@/adapters/primary/ui/components/ThemeToggle';
 import { Button } from '@/adapters/primary/ui/components/base/button';
 
 export default function Landing() {
   const [activeModalTab, setActiveModalTab] = useState<'candidates' | 'recruiters' | 'how-it-works' | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen mesh-gradient" style={{ background: 'var(--bg-primary)' }}>
@@ -96,9 +97,76 @@ export default function Landing() {
             <Button asChild variant="gradient" size="default">
               <Link to="/register" className="text-xs md:text-sm">Get Started</Link>
             </Button>
+            
+            {/* Mobile menu trigger */}
+            <motion.button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              whileTap={{ scale: 0.9 }}
+              className="lg:hidden p-2 rounded-lg cursor-pointer transition-colors bg-white/5 border border-white/10"
+              style={{ color: 'var(--text-primary)' }}
+              aria-label="Toggle mobile menu"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </motion.button>
           </div>
         </div>
       </nav>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="lg:hidden absolute top-20 left-4 right-4 z-40 p-6 rounded-2xl flex flex-col gap-4"
+            style={{
+              background: 'rgba(17, 24, 39, 0.95)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: 'var(--shadow-glow)',
+            }}
+          >
+            <button
+              onClick={() => {
+                setActiveModalTab('candidates');
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full text-left py-2.5 text-base font-medium cursor-pointer bg-transparent border-0 text-[var(--text-primary)] hover:text-[var(--accent-primary)] transition-colors"
+            >
+              For Candidates
+            </button>
+            <button
+              onClick={() => {
+                setActiveModalTab('recruiters');
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full text-left py-2.5 text-base font-medium cursor-pointer bg-transparent border-0 text-[var(--text-primary)] hover:text-[var(--accent-primary)] transition-colors"
+            >
+              For Recruiters
+            </button>
+            <button
+              onClick={() => {
+                setActiveModalTab('how-it-works');
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full text-left py-2.5 text-base font-medium cursor-pointer bg-transparent border-0 text-[var(--text-primary)] hover:text-[var(--accent-primary)] transition-colors"
+            >
+              How it Works
+            </button>
+            <div className="h-px bg-white/10 my-1" />
+            <div className="flex gap-4 items-center">
+              <Button asChild variant="ghost" size="default" className="w-full justify-center" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link to="/login">Login</Link>
+              </Button>
+              <Button asChild variant="gradient" size="default" className="w-full justify-center" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link to="/register">Get Started</Link>
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section */}
       <section className="relative z-10 px-4 md:px-6 py-12 md:py-20 lg:py-32">
@@ -484,7 +552,7 @@ export default function Landing() {
                 onClick={() => setActiveModalTab(null)}
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
-                className="absolute top-6 right-6 p-2 rounded-full cursor-pointer transition-colors"
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full cursor-pointer transition-colors z-20"
                 style={{
                   background: 'rgba(255, 255, 255, 0.05)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -494,15 +562,15 @@ export default function Landing() {
                 <X className="w-5 h-5" />
               </motion.button>
 
-              <div className="p-8 md:p-10 max-h-[85vh] overflow-y-auto">
+              <div className="p-5 sm:p-8 md:p-10 max-h-[85vh] overflow-y-auto">
                 {/* Modal Title */}
-                <h2 className="text-3xl font-bold mb-6 flex items-center gap-3" style={{ fontFamily: 'var(--font-display)' }}>
-                  <Sparkles className="w-6 h-6 text-emerald-400 animate-pulse" />
+                <h2 className="text-2xl sm:text-3xl font-bold mb-6 flex items-center gap-3 pr-8" style={{ fontFamily: 'var(--font-display)' }}>
+                  <Sparkles className="w-6 h-6 text-emerald-400 animate-pulse shrink-0" />
                   <span>How TalentAI Works</span>
                 </h2>
 
                 {/* Tab selectors inside modal */}
-                <div className="flex border-b border-white/10 mb-8 gap-4">
+                <div className="flex border-b border-white/10 mb-8 gap-4 sm:gap-6 overflow-x-auto pb-1 scrollbar-none whitespace-nowrap">
                   {[
                     { id: 'candidates', label: 'For Candidates', icon: Users },
                     { id: 'recruiters', label: 'For Recruiters', icon: Briefcase },
@@ -514,7 +582,7 @@ export default function Landing() {
                       <motion.button
                         key={tab.id}
                         onClick={() => setActiveModalTab(tab.id as any)}
-                        className="flex items-center gap-2 pb-4 text-sm font-medium relative cursor-pointer bg-transparent border-0 outline-none"
+                        className="flex items-center gap-2 pb-4 text-sm font-medium relative cursor-pointer bg-transparent border-0 outline-none shrink-0"
                         style={{
                           color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
                         }}
