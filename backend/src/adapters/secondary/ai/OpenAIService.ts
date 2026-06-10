@@ -27,23 +27,33 @@ export class OpenRouterService implements IAIService {
     }
 
     private async callAI(model: string, messages: any[], temperature: number = 0.7) {
-        try {
-            return await this.client.chat.completions.create({
-                model,
-                messages,
-                temperature,
-            });
-        } catch (error: any) {
-            if (model !== FALLBACK_MODEL) {
-                console.warn(`⚠️ Primary model ${model} failed, trying fallback ${FALLBACK_MODEL}...`);
+        const modelsToTry = [
+            model,
+            'google/gemini-2.0-flash:free',
+            'meta-llama/llama-3.3-70b-instruct:free'
+        ];
+        
+        const uniqueModels = [...new Set(modelsToTry)];
+        let lastError: any;
+
+        for (let i = 0; i < uniqueModels.length; i++) {
+            const currentModel = uniqueModels[i];
+            try {
                 return await this.client.chat.completions.create({
-                    model: FALLBACK_MODEL,
+                    model: currentModel,
                     messages,
                     temperature,
                 });
+            } catch (error: any) {
+                lastError = error;
+                console.warn(`⚠️ Model ${currentModel} failed: ${error.status || error.code || ''} - ${error.message || error}`);
+                if (i === uniqueModels.length - 1) {
+                    throw error;
+                }
+                console.warn(`🔄 Trying next fallback model: ${uniqueModels[i + 1]}`);
             }
-            throw error;
         }
+        throw lastError || new Error('All AI models failed');
     }
 
     private cleanAndParseJson(content: string): any {
