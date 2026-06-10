@@ -328,25 +328,14 @@ export class UserController {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      // Generate clean filename
-      const ext = path.extname(req.file.originalname) || '.png';
-      const filename = `profile-${userId}-${Date.now()}${ext}`;
-      const destDir = path.join(__dirname, '../../../../../uploads');
-      
-      // Ensure folder exists
-      if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-      }
+      // Convert buffer directly to Base64 data URL
+      const base64Data = req.file.buffer.toString('base64');
+      const mimeType = req.file.mimetype || 'image/png';
+      const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-      const filePath = path.join(destDir, filename);
-      fs.writeFileSync(filePath, req.file.buffer);
+      await UserModel.findOneAndUpdate({ id: userId }, { $set: { profilePicture: dataUrl } });
 
-      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-      const host = req.get('host');
-      const url = `${protocol}://${host}/uploads/${filename}`;
-      await UserModel.findOneAndUpdate({ id: userId }, { $set: { profilePicture: url } });
-
-      res.json({ success: true, profilePicture: url });
+      res.json({ success: true, profilePicture: dataUrl });
     } catch (err: any) {
       console.error('uploadProfilePicture error:', err);
       res.status(500).json({ error: err.message });

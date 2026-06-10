@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Eye, EyeOff, Briefcase, Building2, CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { ThemeToggle } from '@/adapters/primary/ui/components/ThemeToggle';
@@ -7,9 +7,13 @@ import { useAuth } from '@/presentation/hooks/useAuth';
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const roleParam = searchParams.get('role');
+  const initialRole = (roleParam === 'candidate' || roleParam === 'recruiter') ? roleParam : null;
+
   const { register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'candidate' | 'recruiter' | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'candidate' | 'recruiter' | null>(initialRole);
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
