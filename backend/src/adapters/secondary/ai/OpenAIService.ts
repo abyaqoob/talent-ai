@@ -4,7 +4,7 @@ import { ParsedCvData, CvFeedback } from '../../../domain/models/Profile';
 
 const pdf = require('pdf-parse');
 
-const MODEL = 'google/gemini-2.0-flash-001';
+const MODEL = 'google/gemini-3.5-flash';
 const FALLBACK_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 
 export class OpenRouterService implements IAIService {
@@ -29,8 +29,9 @@ export class OpenRouterService implements IAIService {
     private async callAI(model: string, messages: any[], temperature: number = 0.7) {
         const modelsToTry = [
             model,
-            'google/gemini-2.0-flash:free',
-            'meta-llama/llama-3.3-70b-instruct:free'
+            'google/gemini-2.5-flash',
+            'meta-llama/llama-3.3-70b-instruct:free',
+            'openrouter/free'
         ];
         
         const uniqueModels = [...new Set(modelsToTry)];
