@@ -3,7 +3,7 @@ import { ThemeToggle } from '../ThemeToggle';
 import { useNavigate } from 'react-router';
 import { ProfileDropdown } from './ProfileDropdown';
 import { useAuth } from '@/presentation/hooks/useAuth';
-import { apiClient } from '@/infrastructure/api/apiClient';
+import { apiClient, SOCKET_BASE } from '@/infrastructure/api/apiClient';
 import { useState, useEffect, useRef } from 'react';
 import { io as socketIO, Socket } from 'socket.io-client';
 
@@ -30,7 +30,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   useEffect(() => {
     if (!user?.id) return;
 
-    const socket = socketIO('http://localhost:5001', { withCredentials: true });
+    const socket = socketIO(SOCKET_BASE, { withCredentials: true });
     socketRef.current = socket;
 
     socket.emit('join', user.id);

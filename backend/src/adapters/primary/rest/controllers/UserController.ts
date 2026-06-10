@@ -341,7 +341,9 @@ export class UserController {
       const filePath = path.join(destDir, filename);
       fs.writeFileSync(filePath, req.file.buffer);
 
-      const url = `http://localhost:5001/uploads/${filename}`;
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.get('host');
+      const url = `${protocol}://${host}/uploads/${filename}`;
       await UserModel.findOneAndUpdate({ id: userId }, { $set: { profilePicture: url } });
 
       res.json({ success: true, profilePicture: url });

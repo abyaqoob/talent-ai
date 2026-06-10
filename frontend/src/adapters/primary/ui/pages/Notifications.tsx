@@ -3,7 +3,7 @@ import { Bell, CheckCheck, Briefcase, MessageSquare, User, Zap, FileCheck, Clipb
 import { AppLayout } from '@/adapters/primary/ui/components/layout/AppLayout';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/presentation/hooks/useAuth';
-import { apiClient } from '@/infrastructure/api/apiClient';
+import { apiClient, SOCKET_BASE } from '@/infrastructure/api/apiClient';
 import { useNavigate } from 'react-router';
 import { io as socketIO, Socket } from 'socket.io-client';
 
@@ -85,7 +85,7 @@ export default function Notifications() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const socket = socketIO('http://localhost:5001', { withCredentials: true });
+    const socket = socketIO(SOCKET_BASE, { withCredentials: true });
     socketRef.current = socket;
 
     socket.emit('join', user.id);

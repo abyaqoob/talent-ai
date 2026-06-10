@@ -5,7 +5,31 @@
 
 // Use the VITE_API_URL from environment variables, or fallback to local for dev
 // We append '/api' because your backend routes usually start with that prefix
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+export const SOCKET_BASE = API_BASE.replace(/\/api\/?$/, '');
+
+function normalizeUrls(data: any): any {
+  if (data === null || data === undefined) return data;
+  if (typeof data === 'string') {
+    if (data.startsWith('http://localhost:5001/')) {
+      return data.replace('http://localhost:5001', SOCKET_BASE);
+    }
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map(normalizeUrls);
+  }
+  if (typeof data === 'object') {
+    const copy: any = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        copy[key] = normalizeUrls(data[key]);
+      }
+    }
+    return copy;
+  }
+  return data;
+}
 
 function getToken(): string | null {
   const stored = localStorage.getItem('auth_session');
@@ -47,7 +71,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const json = await response.json();
+  return normalizeUrls(json) as T;
 }
 
 export const apiClient = {

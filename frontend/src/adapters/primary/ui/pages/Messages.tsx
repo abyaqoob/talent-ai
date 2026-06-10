@@ -5,7 +5,7 @@ import { AppLayout } from '@/adapters/primary/ui/components/layout/AppLayout';
 import { Input } from '@/adapters/primary/ui/components/base/input';
 import { Button } from '@/adapters/primary/ui/components/base/button';
 import { useAuth } from '@/presentation/hooks/useAuth';
-import { apiClient } from '@/infrastructure/api/apiClient';
+import { apiClient, SOCKET_BASE } from '@/infrastructure/api/apiClient';
 import { io, Socket } from 'socket.io-client';
 
 interface Message {
@@ -45,7 +45,7 @@ export default function Messages() {
     fetchMessages();
 
     // Setup Socket.io
-    socketRef.current = io('http://localhost:5001');
+    socketRef.current = io(SOCKET_BASE);
     socketRef.current.on('connect', () => {
       console.log('Connected to socket server');
       socketRef.current?.emit('join', user.id);
