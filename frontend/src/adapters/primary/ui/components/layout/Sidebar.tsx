@@ -1,14 +1,15 @@
 import { Home, User, FileText, Search, ClipboardList, MessageSquare, Bell, Settings, LogOut, Briefcase, Users, TrendingUp, PlusCircle } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/presentation/hooks/useAuth';
 
 interface SidebarProps {
   type?: 'candidate' | 'recruiter';
   isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ type = 'candidate', isOpen = true }: SidebarProps) {
+export function Sidebar({ type = 'candidate', isOpen = true, onClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -48,14 +49,32 @@ export function Sidebar({ type = 'candidate', isOpen = true }: SidebarProps) {
   };
 
   return (
-    <aside
-      className="flex flex-col flex-shrink-0 hidden md:flex overflow-hidden transition-all duration-300 ease-in-out"
-      style={{
-        width: isOpen ? '16rem' : '0px',
-        background: 'var(--bg-secondary)',
-        borderRight: isOpen ? '1px solid var(--border-subtle)' : 'none',
-      }}
-    >
+    <>
+      {/* Mobile Backdrop */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 cursor-pointer"
+          />
+        )}
+      </AnimatePresence>
+
+      <aside
+        className={`flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out z-50
+          fixed md:static inset-y-0 left-0 md:flex
+          ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}
+        style={{
+          width: isOpen ? '16rem' : '0px',
+          background: 'var(--bg-secondary)',
+          borderRight: isOpen ? '1px solid var(--border-subtle)' : 'none',
+        }}
+      >
       {/* Logo */}
       <div className="p-6">
         <motion.div className="flex items-center gap-2 cursor-pointer" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
@@ -146,5 +165,6 @@ export function Sidebar({ type = 'candidate', isOpen = true }: SidebarProps) {
         </motion.button>
       </div>
     </aside>
+  </>
   );
 }
